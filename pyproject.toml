@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+ 
+[project]
+name = "synthetic-society"
+version = "1.0.1"
+description = "A simulated society of statistically grounded AI personas for testing ideas before launch."
+requires-python = ">=3.12"
+readme = "README.md"
+license = { text = "MIT" }
+dependencies = [
+  "pydantic>=2.7,<3",
+  "pydantic-settings>=2.3,<3",
+  "numpy>=1.26,<3",
+  "httpx>=0.27,<1",
+  "pyyaml>=6.0,<7",
+  "typer>=0.12,<1",
+]
+
+[project.scripts]
+society = "society.cli:app"
+ 
+[tool.setuptools.packages.find]
+where = ["src"]
+ 
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "N", "S", "C4", "SIM", "RUF", "ANN", "PERF", "PL"]
+ignore = ["ANN101", "ANN102", "PLR2004", "S101"]
+ 
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+warn_unreachable = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-q --cov=society --cov-report=term-missing --cov-fail-under=85"
