@@ -32,7 +32,7 @@ _SUFFIX_MULT = {"": 1.0, "k": 1_000.0, "m": 1_000_000.0}
 type AttrValue = int | float | str | list[str]
 
 
-class _Strict(BaseModel):
+class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
 
 
@@ -59,7 +59,7 @@ class Segment(StrEnum):
 # --------------------------------------------------------------------------- #
 
 
-class NumericRange(_Strict):
+class NumericRange(StrictModel):
     kind: Literal["range"] = "range"
     lo: float
     hi: float
@@ -82,7 +82,7 @@ class NumericRange(_Strict):
         return cls(lo=lo, hi=hi, integer="." not in text)
 
 
-class Categorical(_Strict):
+class Categorical(StrictModel):
     kind: Literal["categorical"] = "categorical"
     options: tuple[str, ...] = Field(min_length=1)
     weights: tuple[float, ...] | None = None
@@ -124,7 +124,7 @@ def _coerce_attribute(raw: Any) -> Any:  # noqa: ANN401 - YAML is untyped by nat
 # --------------------------------------------------------------------------- #
 
 
-class AudienceSpec(_Strict):
+class AudienceSpec(StrictModel):
     audience: str = Field(min_length=3, max_length=500)
     size: int = Field(ge=1, le=100_000)
     attributes: dict[str, AttributeSpec] = Field(min_length=1)
@@ -156,7 +156,7 @@ class AudienceSpec(_Strict):
 # --------------------------------------------------------------------------- #
 
 
-class Traits(_Strict):
+class Traits(StrictModel):
     """Hidden psychographics injected regardless of user input — prevents 'defining the answer'."""
 
     openness: int = Field(ge=1, le=5)
@@ -167,7 +167,7 @@ class Traits(_Strict):
     segment: Segment
 
 
-class PersonaProfile(_Strict):
+class PersonaProfile(StrictModel):
     """LLM-authored narrative layer. Kept small so it fits prompts cheaply."""
 
     name: str = Field(min_length=2, max_length=60)
@@ -177,7 +177,7 @@ class PersonaProfile(_Strict):
     switch_trigger: str = Field(min_length=5, max_length=300)
 
 
-class Persona(_Strict):
+class Persona(StrictModel):
     id: str = Field(pattern=r"^p_\d{5,}$")
     index: int = Field(ge=0)
     attributes: dict[str, AttrValue]
@@ -188,7 +188,7 @@ class Persona(_Strict):
         return self.model_copy(update={"profile": profile})
 
 
-class RunManifest(_Strict):
+class RunManifest(StrictModel):
     run_id: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     spec_hash: str
