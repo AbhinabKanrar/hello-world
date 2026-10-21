@@ -18,17 +18,20 @@ from society.schemas import AudienceSpec, Persona
 from society.storage import write_jsonl, read_jsonl
 from society.graph import GraphBuilder, GraphConfig, SocialGraph
 from society.sim import ScenarioSpec, SimulationEngine
+from society.report import ReportBuilder
 
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="Synthetic Society CLI")
 
-population_app = typer.Typer(no_args_is_help=True, help="Build and inspect populations.")
-graph_app = typer.Typer(no_args_is_help=True, help="Build the social graph.")
-sim_app = typer.Typer(no_args_is_help=True, help="Run a scenario against a population.")
+population_app = typer.Typer(no_args_is_help=True, help="Build and inspect populations")
+graph_app = typer.Typer(no_args_is_help=True, help="Build the social graph")
+sim_app = typer.Typer(no_args_is_help=True, help="Run a scenario against a population")
+report_app = typer.Typer(no_args_is_help=True, help="Turn a simulation into a report")
 
 app.add_typer(population_app, name="population")
 app.add_typer(graph_app, name="graph")
 app.add_typer(sim_app, name="sim")
+app.add_typer(report_app, name="report")
 
 _log = logging.getLogger("society.cli")
 
@@ -172,6 +175,45 @@ def sim_run(
     except (SocietyError, ValueError, OSError) as exc:
         _log.error("failed", extra={"error": str(exc)})
         raise typer.Exit(code=1) from exc
+
+
+@report_app.command("build")
+def report_build(
+    personas: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    graph: Annotated[Path, typer.Option(exists=True, file_okay=False)],
+    sim: Annotated[Path, typer.Option(exists=True, file_okay=False, help="sim output directory")],
+    scenario: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    out_dir: Annotated[Path, typer.Option()] = Path("out/report"),
+    seed: Annotated[int, typer.Option()] = 42,
+    llm: Annotated[bool, typer.Option(help="Use Ollama for objection clustering + narrative")] = True,
+    narrative: Annotated[bool, typer.Option()] = True,
+    log_level: Annotated[str, typer.Option()] = "INFO",
+) -> None:
+    slog.configure(log_level)
+    settings = Settings()
+    try:
+        people = list(read_jsonl(personas, Persona))
+
+        g = SocialGraph.load(graph)
+        spec = ScenarioSpec.from_yaml(scenario)
+ 
+        async def run() -> None:
+            client = OllamaClient(settings, ResponseCache(settings.cache_path)) if llm else None
+            try:
+                report = await ReportBuilder(client, seed=seed, narrative=narrative).build(
+                    personas=people, graph=g, sim_dir=sim, scenario=spec)
+            finally:
+                if client:
+                    await client.aclose()
+            js, md = ReportBuilder.write(report, out_dir)
+            _log.info("done", extra={"json": str(js), "markdown": str(md), "verdict": report.headline.verdict,
+                                     "final_adoption": report.headline.final_adoption})
+ 
+        asyncio.run(run())
+    except (SocietyError, ValueError, OSError) as exc:
+        _log.error("failed", extra={"error": str(exc)})
+        raise typer.Exit(code=1) from exc
+
 
 
 if __name__ == "__main__":
