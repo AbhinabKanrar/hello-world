@@ -9,5 +9,5 @@ __all__ = [
     "GraphBuilder",
     "GraphConfig",
     "GraphManifest",
-    "SocialGraph"
+    "SocialGraph",
 ]

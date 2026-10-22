@@ -3,9 +3,9 @@ from society.sim.schemas import Reaction, ScenarioSpec, SimEvent, SimManifest
 
 __all__ = [
     "Reaction",
-    "ScenarioSpec", 
-    "SimEvent", 
+    "ScenarioSpec",
+    "SimEvent",
     "SimManifest",
     "SimulationEngine",
-    "SimulationResult"
+    "SimulationResult",
 ]

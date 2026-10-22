@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+
 class SocietyError(Exception):
-    """Base class for all package error"""
+    """Base class for every error raised by this package."""
+
 
 class SpecError(SocietyError):
-    """Invalid scenario spec"""
+    """Invalid audience or scenario spec (YAML, schema, or semantic check)."""
+
 
 class LLMError(SocietyError):
-    """LLM provider failure after retry"""
+    """LLM provider failure that survived all retries."""
+
 
 class LLMTransientError(LLMError):
-    """Retryable provider failure (timeouts, 5xx)"""
+    """Retryable provider failure (transport error, 408/409/425/429/5xx)."""

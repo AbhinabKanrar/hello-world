@@ -1,20 +1,20 @@
 """Persona → dense unit feature vectors for homophily.
- 
+
 Every attribute becomes an L2-unit *block*, so an attribute with 20 categories carries the
 same weight as one with 2. Numeric values are embedded as the unit pair (x, 1-x) so cosine
 similarity decays smoothly with distance instead of collapsing to 0/1.
 """
 
 from __future__ import annotations
- 
+
 from collections.abc import Sequence
 from typing import Any
- 
+
 import numpy as np
 from numpy.typing import NDArray
- 
+
 from society.schemas import DecisionStyle, Persona
- 
+
 _TRAIT_WEIGHT = 0.5
 _CITY_WEIGHT = 1.0
 _STYLES: tuple[DecisionStyle, ...] = tuple(DecisionStyle)
@@ -24,8 +24,8 @@ _STYLE_INDEX = {s: i for i, s in enumerate(_STYLES)}
 def l2_normalize(x: NDArray[np.float32]) -> NDArray[np.float32]:
     norms = np.linalg.norm(x, axis=1, keepdims=True)
     return (x / np.maximum(norms, 1e-12)).astype(np.float32, copy=False)
- 
- 
+
+
 def _is_number(v: Any) -> bool:  # noqa: ANN401
     return isinstance(v, (int, float)) and not isinstance(v, bool)
 
@@ -75,7 +75,7 @@ def _encode_traits(personas: Sequence[Persona]) -> NDArray[np.float32]:
 
 class FeatureEncoder:
     __slots__ = ()
- 
+
     def transform(self, personas: Sequence[Persona]) -> NDArray[np.float32]:
         n = len(personas)
         if n == 0:

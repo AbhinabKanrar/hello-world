@@ -1,7 +1,7 @@
 """In-memory CSR social graph + streaming persistence."""
- 
+
 from __future__ import annotations
- 
+
 import json
 import re
 from collections.abc import Iterable, Iterator
@@ -10,10 +10,10 @@ from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
- 
+
 from society.graph.schemas import AdjacencyRow, Channel
 from society.storage import read_jsonl, write_jsonl
- 
+
 _GRAPH_FILE = "graph.jsonl"
 _CHANNELS_FILE = "channels.json"
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
@@ -21,8 +21,8 @@ _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
 def slugify(text: str) -> str:
     return _SLUG_RE.sub("-", text.lower()).strip("-") or "unknown"
- 
- 
+
+
 @dataclass(frozen=True, slots=True)
 class SocialGraph:
     """Directed, weighted: edge (i → j) means *i listens to j* with trust `weights`."""
@@ -45,13 +45,13 @@ class SocialGraph:
 
     def out_degrees(self) -> NDArray[np.int64]:
         return np.diff(self.indptr)
- 
+
     def in_degrees(self) -> NDArray[np.int64]:
         return np.bincount(self.indices, minlength=self.n).astype(np.int64)
 
     def channel_members(self) -> dict[str, NDArray[np.int64]]:
         return {c.id: np.asarray(c.members, dtype=np.int64) for c in self.channels}
- 
+
     # ------------------------------------------------------- serialization
     def rows(self) -> Iterator[AdjacencyRow]:
         for i in range(self.n):
@@ -77,8 +77,12 @@ class SocialGraph:
         return cls(
             n=len(idx),
             indptr=indptr,
-            indices=np.fromiter((j for x in idx for j in x), dtype=np.int32, count=int(counts.sum())),
-            weights=np.fromiter((w for x in wts for w in x), dtype=np.float32, count=int(counts.sum())),
+            indices=np.fromiter(
+                (j for x in idx for j in x), dtype=np.int32, count=int(counts.sum())
+            ),
+            weights=np.fromiter(
+                (w for x in wts for w in x), dtype=np.float32, count=int(counts.sum())
+            ),
             channels=tuple(channels),
             memberships=tuple(mem),
         )

@@ -48,6 +48,15 @@ class DiversityFilter:
         self._threshold = _THRESHOLD[diversity]
 
     async def duplicates(self, personas: Sequence[Persona]) -> list[int]:
-        texts = [p.profile.bio if p.profile else "" for p in personas]
-        emb = await self._client.embed(texts)
-        return find_near_duplicates(emb, self._threshold)
+        # texts = [p.profile.bio if p.profile else "" for p in personas]
+        # emb = await self._client.embed(texts)
+        # return find_near_duplicates(emb, self._threshold)
+
+        idx = [i for i, p in enumerate(personas) if p.profile is not None]
+
+        if len(idx) < 2:
+            return []
+
+        emb = await self._client.embed([personas[i].profile.bio for i in idx])  # type: ignore[union-attr]
+        local = find_near_duplicates(emb, self._threshold)
+        return [idx[k] for k in local]

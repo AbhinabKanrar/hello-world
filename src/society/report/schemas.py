@@ -1,14 +1,14 @@
 """Typed report contracts. `Report` is the machine-readable deliverable; Markdown is derived from it."""
- 
+
 from __future__ import annotations
- 
+
 from datetime import UTC, datetime
 from typing import Literal
- 
+
 from pydantic import Field
- 
+
 from society.schemas import StrictModel
- 
+
 Verdict = Literal["strong", "promising", "weak", "dead"]
 Trend = Literal["rising", "stable", "fading"]
 
@@ -19,14 +19,15 @@ class RoundPoint(StrictModel):
     mean_interest: float
     sharers: int
     event: str | None = None
- 
- 
+
+
 class Headline(StrictModel):
     final_adoption: float
     peak_adoption: float
     peak_round: int
     trend: Trend
     verdict: Verdict
+
 
 class SegmentStat(StrictModel):
     dimension: str
@@ -36,8 +37,8 @@ class SegmentStat(StrictModel):
     mean_intent: float
     lift: float = Field(description="segment adoption / population adoption")
     low_n: bool
- 
- 
+
+
 class PricePoint(StrictModel):
     price: float
     share_willing: float
@@ -53,8 +54,8 @@ class PriceCurve(StrictModel):
     revenue_max_price: float | None
     revenue_max_share: float | None
     suggested_tiers: list[float]
- 
- 
+
+
 class ObjectionTheme(StrictModel):
     label: str
     count: int
@@ -70,8 +71,8 @@ class Influencer(StrictModel):
     influence: float
     in_degree: int
     conversions_credited: float
- 
- 
+
+
 class SpreadStat(StrictModel):
     organic_adopters: int
     influenced_adopters: int
@@ -88,8 +89,8 @@ class EventImpact(StrictModel):
     delta_interest: float
     baseline_drift: float
     notable: bool
- 
- 
+
+
 class Quote(StrictModel):
     persona_id: str
     name: str
@@ -105,8 +106,8 @@ class Confidence(StrictModel):
     adoption_ci_low: float
     adoption_ci_high: float
     cache_hit_ratio: float | None
- 
- 
+
+
 class Narrative(StrictModel):
     summary: str = Field(min_length=50, max_length=1_500)
     recommendations: list[str] = Field(min_length=1, max_length=5)

@@ -1,11 +1,11 @@
 """Prompt rendering. Pure functions; persona cards are rendered once and reused every round."""
- 
+
 from __future__ import annotations
- 
+
 import json
 from collections.abc import Sequence
- 
-from society.schemas import Persona
+
+from society.schemas import Persona, Segment
 from society.sim.inbox import Inbox
 from society.sim.schemas import ScenarioSpec
 
@@ -15,7 +15,7 @@ SYSTEM = (
     "people are indifferent to most products. Never break character or mention being an AI. "
     "Return JSON only, matching the schema exactly."
 )
- 
+
 _LEVEL = {1: "very low", 2: "low", 3: "moderate", 4: "high", 5: "very high"}
 
 
@@ -26,8 +26,10 @@ def persona_card(p: Persona) -> str:
         f"Openness to new products: {_LEVEL[t.openness]} | Price sensitivity: {_LEVEL[t.price_sensitivity]} "
         f"| Skepticism of marketing: {_LEVEL[t.skepticism]} | Decision style: {t.decision_style.value}",
     ]
-    if t.segment == "non_buyer":
-        lines.append("Note: this person currently has no intention of spending money on this problem.")
+    if t.segment is Segment.NON_BUYER:
+        lines.append(
+            "Note: this person currently has no intention of spending money on this problem."
+        )
     if p.profile:
         lines += [
             f"Name: {p.profile.name} ({p.profile.city})",
@@ -39,11 +41,7 @@ def persona_card(p: Persona) -> str:
 
 
 def scenario_block(s: ScenarioSpec, price_override: str | None = None) -> str:
-    return (
-        f"Product: {s.product}\n"
-        f"Pitch: \"{s.pitch}\"\n"
-        f"Price: {price_override or s.price.render()}"
-    )
+    return f'Product: {s.product}\nPitch: "{s.pitch}"\nPrice: {price_override or s.price.render()}'
 
 
 def exposure_prompt(card: str, scenario: str) -> str:
@@ -59,16 +57,19 @@ def exposure_prompt(card: str, scenario: str) -> str:
 
 def _trust_word(w: float) -> str:
     return "trusted" if w >= 0.7 else "acquaintance" if w >= 0.4 else "barely known"
- 
- 
+
+
 def update_prompt(
     card: str, scenario: str, prior_stance: str, inbox: Inbox, names: Sequence[str]
 ) -> str:
-    parts = [f"=== WHO YOU ARE ===\n{card}", f"=== THE PRODUCT ===\n{scenario}",
-             f"=== YOUR VIEW SO FAR ===\n{prior_stance}"]
+    parts = [
+        f"=== WHO YOU ARE ===\n{card}",
+        f"=== THE PRODUCT ===\n{scenario}",
+        f"=== YOUR VIEW SO FAR ===\n{prior_stance}",
+    ]
     heard: list[str] = []
-    heard += [f"- {names[m.sender]} ({_trust_word(m.trust)}): \"{m.text}\"" for m in inbox.peers]
-    heard += [f"- [{m.channel}] {names[m.sender]}: \"{m.text}\"" for m in inbox.channel]
+    heard += [f'- {names[m.sender]} ({_trust_word(m.trust)}): "{m.text}"' for m in inbox.peers]
+    heard += [f'- [{m.channel}] {names[m.sender]}: "{m.text}"' for m in inbox.channel]
     heard += [f"- {e.kind.value.upper()}: {e.detail}" for e in inbox.events]
     parts.append("=== SINCE THEN YOU HEARD ===\n" + "\n".join(heard))
     parts.append(

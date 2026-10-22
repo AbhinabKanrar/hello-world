@@ -87,7 +87,10 @@ class OllamaClient:
                 # Feed the error back; small models fix themselves on the next turn.
                 messages += [
                     {"role": "assistant", "content": content},
-                    {"role": "user", "content": f"Invalid. Fix these errors and return JSON only:\n{exc}"},
+                    {
+                        "role": "user",
+                        "content": f"Invalid. Fix these errors and return JSON only:\n{exc}",
+                    },
                 ]
                 continue
             if self._cache:
@@ -123,11 +126,15 @@ class OllamaClient:
                 if attempt >= self._s.max_retries:
                     raise LLMError(f"{path} failed after {attempt + 1} attempts: {exc}") from exc
                 sleep_for = delay * (1 + random.random() * 0.25)  # noqa: S311 - jitter, not crypto
-                _log.warning("retrying", extra={"path": path, "attempt": attempt, "sleep": sleep_for})
+                _log.warning(
+                    "retrying", extra={"path": path, "attempt": attempt, "sleep": sleep_for}
+                )
                 await asyncio.sleep(sleep_for)
                 delay *= 2
             except httpx.HTTPStatusError as exc:
-                raise LLMError(f"{path} -> HTTP {exc.response.status_code}: {exc.response.text[:200]}") from exc
+                raise LLMError(
+                    f"{path} -> HTTP {exc.response.status_code}: {exc.response.text[:200]}"
+                ) from exc
         raise AssertionError("unreachable")
 
     async def aclose(self) -> None:

@@ -36,7 +36,9 @@ app.add_typer(report_app, name="report")
 _log = logging.getLogger("society.cli")
 
 
-async def _build(spec: AudienceSpec, seed: int, enrich: bool, settings: Settings) -> tuple[int, Path]:
+async def _build(
+    spec: AudienceSpec, seed: int, enrich: bool, settings: Settings
+) -> tuple[int, Path]:
     client = OllamaClient(settings, ResponseCache(settings.cache_path)) if enrich else None
     try:
         builder = PopulationBuilder(
@@ -59,7 +61,7 @@ def build(
 ) -> None:
     slog.configure(log_level)
     settings = Settings()
-    
+
     try:
         spec = AudienceSpec.from_yaml(audience)
 
@@ -73,11 +75,11 @@ def build(
             finally:
                 if client:
                     await client.aclose()
-                    
+
             n = write_jsonl(out, result.personas)
             manifest_path = out.with_suffix(".manifest.json")
             manifest_path.write_text(result.manifest.model_dump_json(indent=2))
-            
+
             _log.info(
                 "done",
                 extra={
@@ -91,7 +93,7 @@ def build(
             )
 
         asyncio.run(run())
-        
+
     except SocietyError as exc:
         _log.error("failed", extra={"error": str(exc)})
         raise typer.Exit(code=1) from exc
@@ -151,26 +153,35 @@ def sim_run(
         people = list(read_jsonl(personas, Persona))
         g = SocialGraph.load(graph)
         spec = ScenarioSpec.from_yaml(scenario)
- 
+
         async def run() -> None:
             client = OllamaClient(settings, ResponseCache(settings.cache_path))
             try:
                 engine = SimulationEngine(
-                    client, personas=people, graph=g, scenario=spec, seed=seed,
-                    out_dir=out_dir, chat_model=settings.chat_model,
+                    client,
+                    personas=people,
+                    graph=g,
+                    scenario=spec,
+                    seed=seed,
+                    out_dir=out_dir,
+                    chat_model=settings.chat_model,
                 )
                 result = await engine.run()
             finally:
                 await client.aclose()
             m = result.manifest
-            _log.info("done", extra={
-                "events": str(result.events_path),
-                "rounds": m.rounds,
-                "llm_calls": sum(r.llm_calls for r in m.per_round),
-                "final_adoption": m.per_round[-1].adoption if m.per_round else None,
-                "prompt_tokens": m.prompt_tokens, "completion_tokens": m.completion_tokens,
-            })
- 
+            _log.info(
+                "done",
+                extra={
+                    "events": str(result.events_path),
+                    "rounds": m.rounds,
+                    "llm_calls": sum(r.llm_calls for r in m.per_round),
+                    "final_adoption": m.per_round[-1].adoption if m.per_round else None,
+                    "prompt_tokens": m.prompt_tokens,
+                    "completion_tokens": m.completion_tokens,
+                },
+            )
+
         asyncio.run(run())
     except (SocietyError, ValueError, OSError) as exc:
         _log.error("failed", extra={"error": str(exc)})
@@ -185,7 +196,9 @@ def report_build(
     scenario: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
     out_dir: Annotated[Path, typer.Option()] = Path("out/report"),
     seed: Annotated[int, typer.Option()] = 42,
-    llm: Annotated[bool, typer.Option(help="Use Ollama for objection clustering + narrative")] = True,
+    llm: Annotated[
+        bool, typer.Option(help="Use Ollama for objection clustering + narrative")
+    ] = True,
     narrative: Annotated[bool, typer.Option()] = True,
     log_level: Annotated[str, typer.Option()] = "INFO",
 ) -> None:
@@ -196,24 +209,31 @@ def report_build(
 
         g = SocialGraph.load(graph)
         spec = ScenarioSpec.from_yaml(scenario)
- 
+
         async def run() -> None:
             client = OllamaClient(settings, ResponseCache(settings.cache_path)) if llm else None
             try:
                 report = await ReportBuilder(client, seed=seed, narrative=narrative).build(
-                    personas=people, graph=g, sim_dir=sim, scenario=spec)
+                    personas=people, graph=g, sim_dir=sim, scenario=spec
+                )
             finally:
                 if client:
                     await client.aclose()
             js, md = ReportBuilder.write(report, out_dir)
-            _log.info("done", extra={"json": str(js), "markdown": str(md), "verdict": report.headline.verdict,
-                                     "final_adoption": report.headline.final_adoption})
- 
+            _log.info(
+                "done",
+                extra={
+                    "json": str(js),
+                    "markdown": str(md),
+                    "verdict": report.headline.verdict,
+                    "final_adoption": report.headline.final_adoption,
+                },
+            )
+
         asyncio.run(run())
     except (SocietyError, ValueError, OSError) as exc:
         _log.error("failed", extra={"error": str(exc)})
         raise typer.Exit(code=1) from exc
-
 
 
 if __name__ == "__main__":
