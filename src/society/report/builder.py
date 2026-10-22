@@ -12,6 +12,7 @@ from society.graph.model import SocialGraph
 from society.llm.base import ChatClient
 from society.report import metrics
 from society.report.frame import Frame
+from society.report.html import to_html
 from society.report.narrative import write_narrative
 from society.report.objections import objection_themes
 from society.report.render import to_markdown
@@ -84,10 +85,19 @@ class ReportBuilder:
 
     @staticmethod
     def write(report: Report, out_dir: Path) -> tuple[Path, Path]:
+        # Render first so a rendering failure does not overwrite existing outputs.
+        html_content = to_html(report)
+        json_content = report.model_dump_json(indent=2)
+        markdown_content = to_markdown(report)
+
         out_dir.mkdir(parents=True, exist_ok=True)
-        js, md = out_dir / "report.json", out_dir / "report.md"
-        js.write_text(report.model_dump_json(indent=2))
-        md.write_text(to_markdown(report))
+        js = out_dir / "report.json"
+        md = out_dir / "report.md"
+        html = out_dir / "report.html"
+
+        js.write_text(json_content, encoding="utf-8")
+        md.write_text(markdown_content, encoding="utf-8")
+        html.write_text(html_content, encoding="utf-8")
         return js, md
 
 

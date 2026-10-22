@@ -152,7 +152,10 @@ def price_curve(frame: Frame, list_price: float, *, max_points: int = 40) -> Pri
     mp = frame.max_price[-1].astype(np.float64)
     n = mp.size
     pos = np.sort(mp[mp > 0])
-    willing_at = lambda p: float(n - np.searchsorted(pos, p, side="left")) / n  # noqa: E731
+
+    def willing_at(price: float) -> float:
+        return float(pos.size - np.searchsorted(pos, price, side="left")) / n
+    
     if pos.size == 0:
         return PriceCurve(
             points=[],
@@ -165,7 +168,7 @@ def price_curve(frame: Frame, list_price: float, *, max_points: int = 40) -> Pri
             suggested_tiers=[],
         )
     grid = np.unique(np.round(np.quantile(pos, np.linspace(0, 1, max_points)), 2))
-    share = (n - np.searchsorted(pos, grid, side="left")) / n
+    share = (pos.size - np.searchsorted(pos, grid, side="left")) / n
     rev = grid * share
     b = int(rev.argmax())
     tiers = np.unique(np.round(np.quantile(pos, [0.25, 0.5, 0.75]), 2))

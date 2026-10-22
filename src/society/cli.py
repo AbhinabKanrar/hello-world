@@ -225,6 +225,7 @@ def report_build(
                 extra={
                     "json": str(js),
                     "markdown": str(md),
+                    "html": str(out_dir / "report.html"),
                     "verdict": report.headline.verdict,
                     "final_adoption": report.headline.final_adoption,
                 },
