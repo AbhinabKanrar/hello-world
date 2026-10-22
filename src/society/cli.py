@@ -12,7 +12,7 @@ import typer
 from society import logging as slog
 from society.config import Settings
 from society.errors import SocietyError
-from society.llm import OllamaClient, ResponseCache
+from society.llm.factory import create_client
 from society.population import PopulationBuilder
 from society.schemas import AudienceSpec, Persona
 from society.storage import write_jsonl, read_jsonl
@@ -39,7 +39,7 @@ _log = logging.getLogger("society.cli")
 async def _build(
     spec: AudienceSpec, seed: int, enrich: bool, settings: Settings
 ) -> tuple[int, Path]:
-    client = OllamaClient(settings, ResponseCache(settings.cache_path)) if enrich else None
+    client = create_client(settings) if enrich else None
     try:
         builder = PopulationBuilder(
             client, chat_model=settings.chat_model, embed_model=settings.embed_model
@@ -66,7 +66,7 @@ def build(
         spec = AudienceSpec.from_yaml(audience)
 
         async def run() -> None:
-            client = OllamaClient(settings, ResponseCache(settings.cache_path)) if enrich else None
+            client = create_client(settings) if enrich else None
             try:
                 builder = PopulationBuilder(
                     client, chat_model=settings.chat_model, embed_model=settings.embed_model
@@ -155,7 +155,7 @@ def sim_run(
         spec = ScenarioSpec.from_yaml(scenario)
 
         async def run() -> None:
-            client = OllamaClient(settings, ResponseCache(settings.cache_path))
+            client = create_client(settings)
             try:
                 engine = SimulationEngine(
                     client,
@@ -197,7 +197,7 @@ def report_build(
     out_dir: Annotated[Path, typer.Option()] = Path("out/report"),
     seed: Annotated[int, typer.Option()] = 42,
     llm: Annotated[
-        bool, typer.Option(help="Use Ollama for objection clustering + narrative")
+        bool, typer.Option(help="Use embeddings and the configured chat provider for reporting")
     ] = True,
     narrative: Annotated[bool, typer.Option()] = True,
     log_level: Annotated[str, typer.Option()] = "INFO",
@@ -211,7 +211,7 @@ def report_build(
         spec = ScenarioSpec.from_yaml(scenario)
 
         async def run() -> None:
-            client = OllamaClient(settings, ResponseCache(settings.cache_path)) if llm else None
+            client = create_client(settings) if llm else None
             try:
                 report = await ReportBuilder(client, seed=seed, narrative=narrative).build(
                     personas=people, graph=g, sim_dir=sim, scenario=spec
