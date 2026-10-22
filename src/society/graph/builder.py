@@ -155,18 +155,6 @@ class GraphBuilder:
             far = rng.integers(0, n - 1, size=(b, fmax))
             far += far >= rows[:, None]
 
-            # for r in range(b):
-            #     i = start + r
-            #     nbrs = np.unique(np.concatenate((local[r, : n_local[i]], far[r, : n_far[i]])))
-            #     s = sims[r, nbrs]
-            #     trust = (
-            #         cfg.trust_base + cfg.trust_similarity * s + cfg.trust_influence * influence[nbrs]
-            #     ) * trust_scale[i]
-            #     idx_chunks.append(nbrs.astype(np.int32))
-            #     w_chunks.append(np.clip(trust, _TRUST_MIN, 1.0).astype(np.float32))
-            #     counts[i] = nbrs.size
-            #     edge_sim_sum += float(s.sum())
-
             # Pad local+far into one (b, kmax+fmax) matrix; -1 = empty slot.
             cand = np.full((b, kmax + fmax), -1, dtype=np.int64)
             loc_mask = np.arange(kmax)[None, :] < n_local[start:stop, None]

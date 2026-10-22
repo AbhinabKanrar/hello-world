@@ -37,7 +37,6 @@ _log = logging.getLogger(__name__)
 _EVENTS = "events.jsonl"
 _CKPT = "checkpoint.json"
 _SEED_MIX = 0x9E3779B1
-_EVENT_MIN_INTEREST = 2
 
 
 def _call_seed(seed: int, index: int, rnd: int) -> int:
@@ -105,10 +104,12 @@ class SimulationEngine:
             max_channel=s.max_channel_posts,
             broadcast_top_k=s.broadcast_top_k,
         )
-        scenario_text = prompts.scenario_block(s)
         stats: list[RoundStats] = []
 
         for rnd in range(start, s.rounds + 1):
+            scenario_text = prompts.scenario_block(
+                s, price_override=s.price_at(rnd).render()
+            )
             hits_before = self._client.usage.cache_hits
             if rnd == 0:
                 inboxes = {i: Inbox() for i in range(n)}
@@ -119,7 +120,6 @@ class SimulationEngine:
                     sharers=state.spoke_in(rnd - 1),
                     messages=state.share_message,
                     events=s.events_at(rnd),
-                    engaged=state.interest >= _EVENT_MIN_INTEREST,
                 )
                 rows = await self._query(inboxes, state, rnd, scenario_text, exposure=False)
                 queried = np.zeros(n, dtype=np.bool_)

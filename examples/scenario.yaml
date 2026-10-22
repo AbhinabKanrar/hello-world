@@ -8,7 +8,8 @@ price:
 rounds: 5
 events:
   - round: 3
-    kind: "price_change"
+    kind: price_change
+    new_price: 19
     detail: "Price raised to $19/month"
   - round: 4
     kind: "news"

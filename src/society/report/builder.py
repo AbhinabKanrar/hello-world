@@ -11,7 +11,7 @@ import numpy as np
 from society.graph.model import SocialGraph
 from society.llm.base import ChatClient
 from society.report import metrics
-from society.report.frame import Frame
+from society.report.frame import ADOPT_THRESHOLD, Frame
 from society.report.html import to_html
 from society.report.narrative import write_narrative
 from society.report.objections import objection_themes
@@ -42,7 +42,17 @@ class ReportBuilder:
         sim_dir: Path,
         scenario: ScenarioSpec,
     ) -> Report:
-        frame = Frame.load(sim_dir, expected_n=len(personas))
+        if graph.n != len(personas):
+            raise ValueError("report graph size does not match the population")
+        if any(persona.index != i for i, persona in enumerate(personas)):
+            raise ValueError("personas must be ordered by contiguous index")
+
+        frame = Frame.load(
+            sim_dir,
+            expected_n=len(personas),
+            expected_scenario_hash=scenario.content_hash(),
+            expected_ids=[persona.id for persona in personas],
+        )
         curve = metrics.adoption_curve(frame, scenario)
         head = metrics.headline(curve)
         segments = metrics.segment_stats(frame, personas)
@@ -118,6 +128,8 @@ def _voices(
     for seg, adopter in picks:
         idx, labels = label_cache[seg.dimension]
         members = np.unique(idx[labels == seg.bucket])
+        adoption_mask = intent[members] >= ADOPT_THRESHOLD
+        members = members[adoption_mask if adopter else ~adoption_mask]
         members = members[[bool(frame.reasoning[m]) and m not in seen for m in members]]
         if members.size == 0:
             continue

@@ -18,7 +18,7 @@ from society.schemas import StrictModel
 
 
 class Price(StrictModel):
-    amount: float = Field(ge=0)
+    amount: float = Field(ge=0, allow_inf_nan=False)
     period: Literal["one-time", "month", "year"] = "month"
     currency: str = Field("USD", min_length=3, max_length=3)
 
@@ -39,6 +39,16 @@ class ScenarioEvent(StrictModel):
     round: int = Field(ge=1)
     kind: EventKind
     detail: str = Field(min_length=5, max_length=400)
+    new_price: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+
+    @model_validator(mode="after")
+    def _validate_price_payload(self) -> Self:
+        if self.kind is EventKind.PRICE_CHANGE:
+            if self.new_price is None:
+                raise ValueError("price_change requires a numeric new_price")
+        elif self.new_price is not None:
+            raise ValueError("new_price is only valid for price_change events")
+        return self
 
 
 class ScenarioSpec(StrictModel):
@@ -57,9 +67,41 @@ class ScenarioSpec(StrictModel):
 
     @model_validator(mode="after")
     def _events_in_range(self) -> Self:
-        if any(e.round > self.rounds for e in self.events):
-            raise ValueError("event round exceeds scenario rounds")
+        price_rounds: set[int] = set()
+
+        for event in self.events:
+            if event.round > self.rounds:
+                raise ValueError("event round exceeds scenario rounds")
+            if event.kind is EventKind.PRICE_CHANGE:
+                if event.round in price_rounds:
+                    raise ValueError("only one price_change is allowed per round")
+                price_rounds.add(event.round)
+
         return self
+
+    def price_at(self, rnd: int) -> Price:
+        """Effective price after applying all price changes through this round."""
+        if not 0 <= rnd <= self.rounds:
+            raise ValueError("round is outside the scenario")
+
+        amount = self.price.amount
+        latest_round = -1
+
+        for event in self.events:
+            if (
+                event.kind is EventKind.PRICE_CHANGE
+                and latest_round < event.round <= rnd
+            ):
+                if event.new_price is None:
+                    raise ValueError("price_change is missing new_price")
+                amount = event.new_price
+                latest_round = event.round
+
+        return Price(
+            amount=amount,
+            period=self.price.period,
+            currency=self.price.currency,
+        )
 
     def events_at(self, rnd: int) -> tuple[ScenarioEvent, ...]:
         return tuple(e for e in self.events if e.round == rnd)
@@ -84,7 +126,7 @@ class Reaction(StrictModel):
 
     interest: int = Field(ge=1, le=5)
     purchase_intent: int = Field(ge=1, le=5)
-    max_price: float = Field(ge=0, description="Most they'd pay per period; 0 = would not pay.")
+    max_price: float = Field(ge=0, allow_inf_nan=False, description="Most they'd pay per period; 0 = would not pay.")
     top_objection: str = Field(min_length=2, max_length=200)
     would_share: bool
     share_message: str = Field(
@@ -95,6 +137,13 @@ class Reaction(StrictModel):
     )
     reasoning: str = Field(min_length=10, max_length=600)
 
+    @model_validator(mode="after")
+    def _validate_sharing(self) -> Self:
+        if self.would_share and not self.share_message:
+            raise ValueError("would_share=true requires a non-empty share_message")
+        if not self.would_share and self.share_message:
+            raise ValueError("would_share=false requires an empty share_message")
+        return self
 
 # -------------------------------------------------------------- outputs
 
@@ -108,17 +157,17 @@ class SimEvent(StrictModel):
     index: int = Field(ge=0)
     persona_id: str
     trigger: Trigger
-    interest: int
-    purchase_intent: int
-    max_price: float
+    interest: int = Field(ge=1, le=5)
+    purchase_intent: int = Field(ge=1, le=5)
+    max_price: float = Field(ge=0, allow_inf_nan=False)
     would_share: bool
     top_objection: str
     share_message: str
     stance: str
     reasoning: str
-    peer_msgs: int = 0
-    channel_msgs: int = 0
-    events: int = 0
+    peer_msgs: int = Field(default=0, ge=0)
+    channel_msgs: int = Field(default=0, ge=0)
+    events: int = Field(default=0, ge=0)
 
 
 class Checkpoint(StrictModel):
