@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
 
@@ -13,6 +13,8 @@ from society import logging as slog
 from society.config import Settings
 from society.errors import SocietyError
 from society.llm.factory import create_client
+from society.llm.base import ChatClient, UsageMeter
+from society.llm.openrouter import OpenRouterClient
 from society.population import PopulationBuilder
 from society.schemas import AudienceSpec, Persona
 from society.storage import write_jsonl, read_jsonl
@@ -36,6 +38,65 @@ app.add_typer(report_app, name="report")
 _log = logging.getLogger("society.cli")
 
 
+async def _close_with_usage(
+    client: ChatClient | None,
+    *,
+    stage: Literal["population", "simulation", "report"],
+    settings: Settings,
+    output: Path,
+) -> None:
+    """Log observed usage for this invocation, including on operation failure."""
+    chat = client.usage if client is not None else UsageMeter()
+
+    # The current Ollama adapter does not meter embedding tokens.
+    # Do not represent unmeasured usage as zero.
+    embeddings: UsageMeter | None
+    if client is None:
+        embeddings = UsageMeter()
+    elif isinstance(client, OpenRouterClient):
+        embeddings = client.embedding_usage
+    else:
+        embeddings = None
+
+    summary: dict[str, object] = {
+        "stage": stage,
+        "output": str(output),
+        "provider": settings.provider,
+        "chat_model": settings.chat_model,
+        "embedding_model": settings.embed_model,
+        "accounting_scope": "observed_response_usage_this_invocation",
+        "chat_input_tokens": chat.prompt_tokens,
+        "chat_output_tokens": chat.completion_tokens,
+        "embedding_input_tokens": (
+            embeddings.prompt_tokens if embeddings is not None else None
+        ),
+        "embedding_output_tokens": (
+            embeddings.completion_tokens if embeddings is not None else None
+        ),
+        "total_input_tokens": (
+            chat.prompt_tokens + embeddings.prompt_tokens
+            if embeddings is not None
+            else None
+        ),
+        "total_output_tokens": (
+            chat.completion_tokens + embeddings.completion_tokens
+            if embeddings is not None
+            else None
+        ),
+        "chat_cache_hits": chat.cache_hits,
+        "embedding_cache_hits": (
+            embeddings.cache_hits if embeddings is not None else None
+        ),
+        "embedding_meter_available": embeddings is not None,
+    }
+
+    try:
+        if client is not None:
+            await client.aclose()
+    finally:
+        _log.info("token_usage_summary", extra=summary)
+
+
 async def _build(
     spec: AudienceSpec, seed: int, enrich: bool, settings: Settings
 ) -> tuple[int, Path]:
@@ -48,6 +109,7 @@ async def _build(
     finally:
         if client:
             await client.aclose()
+
     return 0, Path()  # placeholder replaced below
 
 
@@ -73,8 +135,12 @@ def build(
                 )
                 result = await builder.build(spec, seed=seed)
             finally:
-                if client:
-                    await client.aclose()
+                await _close_with_usage(
+                    client,
+                    stage="population",
+                    settings=settings,
+                    output=out
+                )
 
             n = write_jsonl(out, result.personas)
             manifest_path = out.with_suffix(".manifest.json")
@@ -168,7 +234,12 @@ def sim_run(
                 )
                 result = await engine.run()
             finally:
-                await client.aclose()
+                await _close_with_usage(
+                    client,
+                    stage="simulation",
+                    settings=settings,
+                    output=out_dir
+                )
             m = result.manifest
             _log.info(
                 "done",
@@ -218,7 +289,12 @@ def report_build(
                 )
             finally:
                 if client:
-                    await client.aclose()
+                    await _close_with_usage(
+                        client,
+                        stage="report",
+                        settings=settings,
+                        output=out_dir
+                    )
             js, md = ReportBuilder.write(report, out_dir)
             _log.info(
                 "done",
