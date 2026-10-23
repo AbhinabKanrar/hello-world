@@ -1,6 +1,6 @@
 """OpenRouter chat with local Ollama embeddings.
 
-Owns its HTTP client, optional cache, and lazily created embedding client.
+Owns its HTTP client, optional cache.
 Create one instance per CLI operation; close it after outstanding calls finish.
 """
 
@@ -25,7 +25,6 @@ from society.config import Settings
 from society.errors import LLMError
 from society.llm.base import UsageMeter
 from society.llm.cache import ResponseCache
-from society.llm.ollama import OllamaClient
 
 _log = logging.getLogger(__name__)
 _BASE_URL = "https://openrouter.ai/api/v1/"
@@ -81,6 +80,21 @@ class _CacheEntry(_WireModel):
     provider: str | None = None
     response_id: str | None = None
     model: str | None = None
+
+
+class _EmbeddingItem(_WireModel):
+    index: int = Field(ge=0)
+    embedding: list[float] = Field(min_length=1)
+
+
+class _EmbeddingUsage(_WireModel):
+    prompt_tokens: int = Field(ge=0)
+
+
+class _EmbeddingResponse(_WireModel):
+    model: str
+    data: list[_EmbeddingItem] = Field(min_length=1)
+    usage: _EmbeddingUsage | None = None
 
 
 class _RetryableError(LLMError):
@@ -182,9 +196,9 @@ class OpenRouterClient:
         self._s = settings
         self._cache = cache
         self._closed = False
-        self._embedder: OllamaClient | None = None
         self._sem = asyncio.Semaphore(settings.concurrency)
         self.usage = UsageMeter()
+        self.embedding_usage = UsageMeter()
 
         self._http = httpx.AsyncClient(
             base_url=_BASE_URL,
@@ -479,14 +493,188 @@ class OpenRouterClient:
 
         raise AssertionError("unreachable")
 
+    @staticmethod
+    def _embedding_matrix(
+        response: _EmbeddingResponse,
+        expected_count: int,
+    ) -> NDArray[np.float32]:
+        items = sorted(response.data, key=lambda item: item.index)
+        if [item.index for item in items] != list(range(expected_count)):
+            raise LLMError("Embedding response has missing or duplicate indices.")
+
+        dimension = len(items[0].embedding)
+        if any(len(item.embedding) != dimension for item in items):
+            raise LLMError("Embedding response contains inconsistent dimensions.")
+
+        # Validate before converting to the float32 representation used downstream.
+        matrix64 = np.asarray(
+            [item.embedding for item in items],
+            dtype=np.float64,
+        )
+        if not np.isfinite(matrix64).all():
+            raise LLMError("Embedding response contains non-finite values.")
+        if np.any(np.abs(matrix64) > np.finfo(np.float32).max):
+            raise LLMError("Embedding values exceed float32 storage limits.")
+
+        matrix = matrix64.astype(np.float32)
+        if np.any(np.linalg.norm(matrix.astype(np.float64), axis=1) == 0):
+            raise LLMError("Embedding response contains a zero vector.")
+        return matrix
+
+    async def _embedding_request(
+        self,
+        payload: dict[str, JsonValue],
+    ) -> _EmbeddingResponse:
+        """Transport retries only; invalid embedding payloads fail explicitly."""
+        delay = min(
+            self._s.retry_base_delay_s,
+            self._s.openrouter_max_retry_delay_s,
+        )
+
+        for attempt in range(self._s.max_retries + 1):
+            try:
+                response = await self._http.post("embeddings", json=payload)
+
+                if response.status_code in _RETRYABLE_STATUS:
+                    raise _RetryableError(
+                        f"Embedding HTTP {response.status_code}",
+                        retry_after_s=_retry_after_seconds(
+                            response.headers.get("Retry-After")
+                        ),
+                    )
+                if not response.is_success:
+                    raise LLMError(
+                        f"OpenRouter embeddings HTTP {response.status_code}; "
+                        "check embedding model, credentials, balance, and input limits."
+                    )
+
+                try:
+                    parsed = _EmbeddingResponse.model_validate_json(response.content)
+                except ValidationError:
+                    # Do not automatically repeat potentially billable responses.
+                    raise LLMError(
+                        "OpenRouter returned an invalid embedding response."
+                    ) from None
+
+                if parsed.usage is not None:
+                    self.embedding_usage.add(parsed.usage.prompt_tokens, 0)
+                else:
+                    self.embedding_usage.requests += 1
+                    _log.warning("openrouter_embedding_usage_missing")
+
+                _log.info(
+                    "openrouter_embedding_response",
+                    extra={
+                        "model": parsed.model,
+                        "count": len(parsed.data),
+                        "prompt_tokens": (
+                            parsed.usage.prompt_tokens if parsed.usage else None
+                        ),
+                    },
+                )
+                return parsed
+
+            except (httpx.TransportError, _RetryableError) as exc:
+                if attempt >= self._s.max_retries:
+                    raise LLMError(
+                        "OpenRouter embedding retries exhausted."
+                    ) from None
+
+                retry_after = (
+                    exc.retry_after_s
+                    if isinstance(exc, _RetryableError)
+                    else None
+                )
+                limit = self._s.openrouter_max_retry_delay_s
+                if retry_after is not None and retry_after > limit:
+                    raise LLMError(
+                        "Embedding Retry-After exceeds the configured wait limit."
+                    ) from None
+
+                sleep_for = max(
+                    _JITTER.uniform(delay / 2, delay),
+                    retry_after or 0.0,
+                )
+                _log.warning(
+                    "openrouter_embedding_retry",
+                    extra={
+                        "attempt": attempt + 1,
+                        "sleep_s": round(sleep_for, 3),
+                        "error_type": type(exc).__name__,
+                    },
+                )
+                await asyncio.sleep(sleep_for)
+                delay = min(delay * 2, limit)
+
+        raise AssertionError("unreachable")
+
+    async def _embed_batch(self, texts: list[str]) -> NDArray[np.float32]:
+        payload: dict[str, JsonValue] = {
+            "model": self._s.embed_model,
+            "input": [text for text in texts],
+            "encoding_format": "float",
+        }
+        key = ResponseCache.key(
+            adapter="openrouter-embeddings-v1",
+            base_url=_BASE_URL,
+            request=payload,
+        )
+
+        async with self._sem:
+            self._ensure_open()
+
+            if self._cache is not None:
+                hit = self._cache.get(key)
+                if hit is not None:
+                    try:
+                        cached = _EmbeddingResponse.model_validate_json(hit)
+                        matrix = self._embedding_matrix(cached, len(texts))
+                    except (ValidationError, LLMError):
+                        _log.warning(
+                            "openrouter_embedding_cache_invalid",
+                            extra={"cache_key": key},
+                        )
+                    else:
+                        self.embedding_usage.cache_hits += 1
+                        return matrix
+
+            try:
+                async with asyncio.timeout(self._s.openrouter_call_timeout_s):
+                    response = await self._embedding_request(payload)
+            except TimeoutError:
+                raise LLMError(
+                    "OpenRouter embedding batch exceeded its time budget."
+                ) from None
+
+            matrix = self._embedding_matrix(response, len(texts))
+            if self._cache is not None:
+                self._cache.put(key, response.model_dump_json())
+            return matrix
+
     async def embed(self, texts: Sequence[str]) -> NDArray[np.float32]:
         self._ensure_open()
         if not texts:
             return np.empty((0, 0), dtype=np.float32)
-        if self._embedder is None:
-            # No shared cache: this client alone owns the chat cache.
-            self._embedder = OllamaClient(self._s)
-        return await self._embedder.embed(texts)
+        if any(not text.strip() for text in texts):
+            raise LLMError("Embedding input contains an empty or whitespace-only text.")
+
+        batches: list[NDArray[np.float32]] = []
+        dimension: int | None = None
+
+        for start in range(0, len(texts), self._s.embed_batch_size):
+            batch = list(texts[start : start + self._s.embed_batch_size])
+            matrix = await self._embed_batch(batch)
+
+            if dimension is None:
+                dimension = matrix.shape[1]
+            elif matrix.shape[1] != dimension:
+                raise LLMError("Embedding dimensions changed between batches.")
+
+            batches.append(matrix)
+
+        if len(batches) == 1:
+            return batches[0]
+        return np.concatenate(batches, axis=0)
 
     async def aclose(self) -> None:
         if self._closed:
@@ -495,9 +683,5 @@ class OpenRouterClient:
         try:
             await self._http.aclose()
         finally:
-            try:
-                if self._embedder is not None:
-                    await self._embedder.aclose()
-            finally:
-                if self._cache is not None:
-                    self._cache.close()
+            if self._cache is not None:
+                self._cache.close()

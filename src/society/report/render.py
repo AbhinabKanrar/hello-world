@@ -16,7 +16,12 @@ def _table(headers: Sequence[str], rows: Iterable[Sequence[object]]) -> str:
 
 def to_markdown(r: Report) -> str:  # noqa: PLR0915 - a template is naturally linear
     h, c, p = r.headline, r.confidence, r.price
-    out: list[str] = [f"# {r.scenario}", ""]
+    out: list[str] = [
+        f"# {r.scenario}", 
+        "",
+        "_Cohuvo - Audience simulation report_",
+        ""
+    ]
     out += [
         f"**Verdict: {h.verdict.upper()}** — final adoption **{_PCT(h.final_adoption)}** "
         f"(95% CI {_PCT(c.adoption_ci_low)}–{_PCT(c.adoption_ci_high)}, n={c.n}), "

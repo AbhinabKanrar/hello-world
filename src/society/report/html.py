@@ -520,9 +520,9 @@ def to_html(report: Report) -> str:
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         f'<meta http-equiv="Content-Security-Policy" content="{escape(policy, quote=True)}">'
-        f"<title>{title} · Synthetic Society</title>"
+        f"<title>{title} · Cohuvo</title>"
         f"<style>{_CSS}</style></head><body><main>"
-        '<header><div class="eyebrow">Synthetic Society · Simulation report</div>'
+        '<header><div class="eyebrow">cohuvo · Audience Simulation Report</div>'
         f"<h1>{title}</h1>"
         '<p class="muted">Explore hypotheses before testing them with real customers.</p>'
         '<nav aria-label="Report sections">'
@@ -534,7 +534,7 @@ def to_html(report: Report) -> str:
         '<noscript><p class="notice">JavaScript is needed for this dashboard. '
         'The adjacent report.md and report.json remain available.</p></noscript>'
         '<div id="dashboard"></div>'
-        '<footer>Exploratory synthetic evidence—not a prediction guarantee.</footer>'
+        '<footer>Cohuvo : Exploratory synthetic evidence</footer>'
         f'<script id="report-data" type="application/json">{payload}</script>'
         f"<script>{_JS}</script></main></body></html>"
     )

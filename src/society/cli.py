@@ -21,7 +21,7 @@ from society.sim import ScenarioSpec, SimulationEngine
 from society.report import ReportBuilder
 
 
-app = typer.Typer(no_args_is_help=True, add_completion=False, help="Synthetic Society CLI")
+app = typer.Typer(no_args_is_help=True, add_completion=False, help="Cohuvo audience simulation CLI")
 
 population_app = typer.Typer(no_args_is_help=True, help="Build and inspect populations")
 graph_app = typer.Typer(no_args_is_help=True, help="Build the social graph")

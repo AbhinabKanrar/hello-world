@@ -3,9 +3,9 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
  
 [project]
-name = "synthetic-society"
+name = "cohuvo"
 version = "1.0.1"
-description = "A simulated society of statistically grounded AI personas for testing ideas before launch."
+description = "cohuvo - AI-powered audience simulation for exloring products and pricing"
 requires-python = ">=3.12"
 readme = "README.md"
 license = { text = "MIT" }
@@ -19,7 +19,7 @@ dependencies = [
 ]
 
 [project.scripts]
-society = "society.cli:app"
+cohuvo = "society.cli:app"
  
 [tool.setuptools.packages.find]
 where = ["src"]
