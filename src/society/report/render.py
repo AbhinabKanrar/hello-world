@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 
-from society.report.schemas import Report
+import html
+from society.report.schemas import Report, TrialReport
 
 _PCT = "{:.1%}".format
 
@@ -143,3 +144,56 @@ def to_markdown(r: Report) -> str:  # noqa: PLR0915 - a template is naturally li
         + "._",
     ]
     return "\n".join(out)
+
+
+def trial_to_markdown(report: TrialReport) -> str:
+    def text(value: str) -> str:
+        escaped = html.escape(value, quote=True)
+        for character in ("\\", "`", "*", "_", "[", "]", "|", "#", ">"):
+            escaped = escaped.replace(character, "\\" + character)
+        return " ".join(escaped.splitlines())
+
+    def percent(value: float | None) -> str:
+        return "N/A" if value is None else f"{value:.2f}%"
+
+    lines = [
+        "# Cohuvo — Synthetic willingness-to-try survey",
+        "",
+        text(report.scenario),
+        "",
+        f"Requested: {report.requested}; completed: {report.completed}; "
+        f"valid: {report.valid}; nonresponse: {report.nonresponse}; "
+        f"technical failures: {report.technical_failures}.",
+        "",
+        "Unweighted synthetic results, not measured human demand.",
+        "",
+    ]
+    for heading, rows in (
+        ("Response distribution", report.categories),
+        ("Configured response groups", report.groups),
+    ):
+        if not rows:
+            continue
+        lines.extend([
+            f"## {heading}",
+            "",
+            "| Response | Count | % completed | % valid |",
+            "|---|---:|---:|---:|",
+        ])
+        lines.extend(
+            f"| {text(row.label)} | {row.count} | "
+            f"{percent(row.percent_completed)} | {percent(row.percent_valid)} |"
+            for row in rows
+        )
+        lines.append("")
+    lines.extend([
+        "## Example stated reasons",
+        "",
+        "First three available reasons per response category, in respondent order. "
+        "These are examples, not ranked themes or prevalence estimates.",
+        "",
+    ])
+    for category in report.categories:
+        for reason in category.reason_examples:
+            lines.append(f"- **{text(category.label)}:** {text(reason)}")
+    return "\n".join(lines) + "\n"

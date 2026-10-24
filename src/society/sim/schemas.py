@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Literal, Self
 
 import yaml
-from pydantic import Field, model_validator
+from pydantic import Field, create_model, model_validator
 
 from society.errors import SpecError
 from society.schemas import StrictModel
@@ -206,3 +206,80 @@ class SimManifest(StrictModel):
     prompt_tokens: int
     completion_tokens: int
     per_round: list[RoundStats]
+
+
+class TrialOption(StrictModel):
+    id: str = Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")
+    label: str = Field(min_length=1, max_length=200)
+    group: str | None = Field(default=None, min_length=1, max_length=100)
+    nonresponse: bool = False
+
+    @model_validator(mode="after")
+    def _validate_group(self) -> Self:
+        if self.nonresponse and self.group is not None:
+            raise ValueError("nonresponse options cannot belong to acceptance groups")
+        return self
+
+
+class TrialScenarioSpec(StrictModel):
+    schema_version: Literal["trial-v1"] = "trial-v1"
+    name: str = Field(min_length=2, max_length=120)
+    stimulus: str = Field(min_length=1, max_length=10_000)
+    question: str = Field(min_length=1, max_length=2_000)
+    options: tuple[TrialOption, ...] = Field(min_length=2, max_length=12)
+    as_of: date | None = None
+
+    @model_validator(mode="after")
+    def _validate_options(self) -> Self:
+        if len({option.id for option in self.options}) != len(self.options):
+            raise ValueError("response option IDs must be unique")
+        if len({option.label for option in self.options}) != len(self.options):
+            raise ValueError("response option labels must be unique")
+        if sum(not option.nonresponse for option in self.options) < 2:
+            raise ValueError("at least two substantive response options are required")
+        return self
+
+    def content_hash(self) -> str:
+        return hashlib.sha256(self.model_dump_json().encode("utf-8")).hexdigest()
+
+    @classmethod
+    def from_yaml(cls, path: Path) -> TrialScenarioSpec:
+        try:
+            with path.open("rb") as fh:
+                return cls.model_validate(yaml.safe_load(fh))
+        except (OSError, yaml.YAMLError, ValueError) as exc:
+            raise SpecError(f"invalid trial scenario {path}: {exc}") from exc
+
+
+class TrialAnswer(StrictModel):
+    option_index: int = Field(ge=0, strict=True)
+    reason: str | None = Field(min_length=1, max_length=600)
+    concern: str | None = Field(min_length=1, max_length=400)
+    information_needed: str | None = Field(min_length=1, max_length=400)
+    change_condition: str | None = Field(min_length=1, max_length=400)
+
+
+def trial_answer_schema(option_count: int) -> type[TrialAnswer]:
+    if not 2 <= option_count <= 12:
+        raise ValueError("option_count must be between 2 and 12")
+    return create_model(
+        "ConfiguredTrialAnswer",
+        __base__=TrialAnswer,
+        option_index=(
+            int,
+            Field(ge=0, lt=option_count, strict=True),
+        ),
+    )
+
+
+class TrialRecord(StrictModel):
+    index: int = Field(ge=0, strict=True)
+    persona_id: str
+    status: Literal["answered", "technical_failure"]
+    answer: TrialAnswer | None
+
+    @model_validator(mode="after")
+    def _validate_status(self) -> Self:
+        if (self.status == "answered") != (self.answer is not None):
+            raise ValueError("only answered records may contain an answer")
+        return self

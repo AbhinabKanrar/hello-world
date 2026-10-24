@@ -10,3 +10,9 @@ cohuvo graph build --personas out/personas.json1 --seed 42 --out-dir out/graph
 cohuvo sim run --personas out/personas.json1 --graph out/graph --scenario examples/scenario.yaml --seed 42 --out-dir out/sim
 
 cohuvo report build --personas out/personas.json1 --graph out/graph --sim out/sim --scenario examples/scenario.yaml --seed 42 --out-dir out/report
+
+cohuvo survey run \
+  --audience examples/audience.yaml \
+  --scenario examples/scenario.yaml \
+  --seed 42 \
+  --out-dir out/lab-grown-meat

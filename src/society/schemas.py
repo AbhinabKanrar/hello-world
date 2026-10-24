@@ -8,6 +8,7 @@ Design rules:
 from __future__ import annotations
 
 import hashlib
+import math
 import re
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -91,11 +92,23 @@ class Categorical(StrictModel):
     @model_validator(mode="after")
     def _consistent(self) -> Self:
         n = len(self.options)
+        if any(not option.strip() for option in self.options):
+            raise ValueError("categorical options must not be blank")
+        if len(set(self.options)) != n:
+            raise ValueError("categorical options must be unique")
         if self.weights is not None and len(self.weights) != n:
             raise ValueError("weights must align with options")
         lo, hi = (self.pick, self.pick) if isinstance(self.pick, int) else self.pick
         if not 1 <= lo <= hi <= n:
             raise ValueError(f"pick {self.pick} invalid for {n} options")
+        if self.weights is not None:
+            if any(not math.isfinite(w) or w < 0 for w in self.weights):
+                raise ValueError("weights must be finite and nonnegative")
+            total = sum(self.weights)
+            if not math.isfinite(total) or total <= 0:
+                raise ValueError("weights must have a finite, positive total")
+            if sum(w > 0 for w in self.weights) < hi:
+                raise ValueError("too few positive weights for sampling without replacement")
         return self
 
 

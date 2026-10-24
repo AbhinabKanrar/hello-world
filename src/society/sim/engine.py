@@ -29,9 +29,13 @@ from society.sim.schemas import (
     ScenarioSpec,
     SimEvent,
     SimManifest,
+    TrialRecord,
+    TrialScenarioSpec,
+    trial_answer_schema
 )
 from society.sim.state import PopulationState
 from society.storage import append_jsonl
+from society.errors import LLMError
 
 _log = logging.getLogger(__name__)
 _EVENTS = "events.jsonl"
@@ -225,3 +229,62 @@ class SimulationEngine:
                 return PopulationState.from_checkpoint(c), c.completed_round + 1
             _log.warning("checkpoint_ignored", extra={"reason": "scenario/seed/size mismatch"})
         return PopulationState(n), 0
+
+
+async def run_trial(
+    client: ChatClient,
+    *,
+    personas: Sequence[Persona],
+    audience: str,
+    scenario: TrialScenarioSpec,
+    seed: int,
+    concurrency: int,
+) -> list[TrialRecord]:
+    if not personas:
+        raise ValueError("trial requires at least one persona")
+    if not 1 <= concurrency <= 256:
+        raise ValueError("concurrency must be between 1 and 256")
+    if any(persona.index != i for i, persona in enumerate(personas)):
+        raise ValueError("personas must have ordered, contiguous indices")
+    if len({persona.id for persona in personas}) != len(personas):
+        raise ValueError("persona IDs must be unique")
+
+    schema = trial_answer_schema(len(scenario.options))
+    pending = iter(enumerate(personas))
+    records: list[TrialRecord | None] = [None] * len(personas)
+
+    async def worker() -> None:
+        # next(pending) and assignment execute on the same event-loop thread.
+        for index, persona in pending:
+            try:
+                answer = await client.complete_json(
+                    system=prompts.TRIAL_SYSTEM,
+                    user=prompts.trial_prompt(persona, audience, scenario),
+                    schema=schema,
+                    temperature=0.7,
+                    seed=_call_seed(seed, index, 0),
+                )
+            except LLMError:
+                # Do not log respondent content or provider response bodies.
+                _log.warning("trial_request_failed", extra={"persona_index": index})
+                records[index] = TrialRecord(
+                    index=index,
+                    persona_id=persona.id,
+                    status="technical_failure",
+                    answer=None,
+                )
+            else:
+                records[index] = TrialRecord(
+                    index=index,
+                    persona_id=persona.id,
+                    status="answered",
+                    answer=answer,
+                )
+
+    async with asyncio.TaskGroup() as tasks:
+        for _ in range(min(concurrency, len(personas))):
+            tasks.create_task(worker())
+
+    if any(record is None for record in records):
+        raise RuntimeError("trial completed without accounting for every persona")
+    return [record for record in records if record is not None]

@@ -17,9 +17,11 @@ from society.report.schemas import (
     PricePoint,
     RoundPoint,
     SegmentStat,
+    TrialCount,
+    TrialReport
 )
 from society.schemas import Persona
-from society.sim.schemas import ScenarioSpec
+from society.sim.schemas import ScenarioSpec, TrialRecord, TrialScenarioSpec
 
 _VERDICT: Final = ((0.35, "strong"), (0.20, "promising"), (0.08, "weak"))
 _NUMERIC_BINS: Final = 4
@@ -231,4 +233,87 @@ def confidence(frame: Frame, *, seed: int, level: float = 0.95) -> Confidence:
         adoption_ci_low=round(float(lo), 4),
         adoption_ci_high=round(float(hi), 4),
         cache_hit_ratio=frame.cache_hit_ratio,
+    )
+
+
+# ------------------------------------------------------------- summarize
+
+
+def summarize_trial(
+    records: Sequence[TrialRecord],
+    scenario: TrialScenarioSpec,
+    *,
+    expected_n: int,
+) -> TrialReport:
+    if expected_n < 1 or len(records) != expected_n:
+        raise ValueError("trial record count does not match the requested population")
+    if any(record.index != i for i, record in enumerate(records)):
+        raise ValueError("trial records must have ordered, contiguous indices")
+    if len({record.persona_id for record in records}) != expected_n:
+        raise ValueError("duplicate persona IDs in trial records")
+
+    counts = [0] * len(scenario.options)
+    examples: list[list[str]] = [[] for _ in scenario.options]
+    failures = 0
+    for record in records:
+        if record.status == "technical_failure":
+            failures += 1
+            continue
+        answer = record.answer
+        if answer is None or not 0 <= answer.option_index < len(counts):
+            raise ValueError("answered record has an invalid response option")
+        index = answer.option_index
+        counts[index] += 1
+        if answer.reason is not None and len(examples[index]) < 3:
+            examples[index].append(answer.reason)
+
+    completed = expected_n - failures
+    nonresponse = sum(
+        count
+        for option, count in zip(scenario.options, counts, strict=True)
+        if option.nonresponse
+    )
+    valid = completed - nonresponse
+
+    def percentage(count: int, denominator: int) -> float | None:
+        return 100.0 * count / denominator if denominator else None
+
+    categories = tuple(
+        TrialCount(
+            id=option.id,
+            label=option.label,
+            count=count,
+            nonresponse=option.nonresponse,
+            percent_completed=percentage(count, completed),
+            percent_valid=None if option.nonresponse else percentage(count, valid),
+            reason_examples=tuple(examples[index]),
+        )
+        for index, (option, count) in enumerate(
+            zip(scenario.options, counts, strict=True)
+        )
+    )
+    grouped: dict[str, int] = {}
+    for option, count in zip(scenario.options, counts, strict=True):
+        if option.group is not None:
+            grouped[option.group] = grouped.get(option.group, 0) + count
+
+    return TrialReport(
+        scenario=scenario.name,
+        scenario_hash=scenario.content_hash(),
+        requested=expected_n,
+        completed=completed,
+        valid=valid,
+        nonresponse=nonresponse,
+        technical_failures=failures,
+        categories=categories,
+        groups=tuple(
+            TrialCount(
+                id=label,
+                label=label,
+                count=count,
+                percent_completed=percentage(count, completed),
+                percent_valid=percentage(count, valid),
+            )
+            for label, count in grouped.items()
+        ),
     )

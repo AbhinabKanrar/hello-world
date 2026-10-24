@@ -127,3 +127,31 @@ class Report(StrictModel):
     voices: list[Quote]
     confidence: Confidence
     narrative: Narrative | None = None
+
+
+class TrialCount(StrictModel):
+    id: str
+    label: str
+    count: int = Field(ge=0)
+    nonresponse: bool = False
+    percent_completed: float | None = Field(
+        default=None, ge=0, le=100, allow_inf_nan=False
+    )
+    percent_valid: float | None = Field(
+        default=None, ge=0, le=100, allow_inf_nan=False
+    )
+    reason_examples: tuple[str, ...] = ()
+
+
+class TrialReport(StrictModel):
+    schema_version: Literal["trial-report-v1"] = "trial-report-v1"
+    scenario: str
+    scenario_hash: str
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    requested: int = Field(ge=1)
+    completed: int = Field(ge=0)
+    valid: int = Field(ge=0)
+    nonresponse: int = Field(ge=0)
+    technical_failures: int = Field(ge=0)
+    categories: tuple[TrialCount, ...]
+    groups: tuple[TrialCount, ...]
