@@ -214,15 +214,15 @@ When enrichment is enabled, profiles add information such as:
 cohuvo population build \
   --audience examples/audience.yaml \
   --seed 42 \
-  --out out/personas.json1
+  --out out/personas.jsonl
 ```
 
 ### Outputs
 
-- `out/personas.json1`
+- `out/personas.jsonl`
 - `out/personas.manifest.json`
 
-The filename `personas.json1` intentionally uses the digit `1`. Its contents use JSONL-style records.
+The filename `personas.jsonl` intentionally uses the digit `1`. Its contents use JSONL-style records.
 
 ### Population limitation
 
@@ -244,7 +244,7 @@ Graph construction uses persona information and graph configuration to establish
 
 ```bash
 cohuvo graph build \
-  --personas out/personas.json1 \
+  --personas out/personas.jsonl \
   --seed 42 \
   --out-dir out/graph
 ```
@@ -272,7 +272,7 @@ Expose personas to the offering and evolve reactions through configured rounds.
 
 ```bash
 cohuvo sim run \
-  --personas out/personas.json1 \
+  --personas out/personas.jsonl \
   --graph out/graph \
   --scenario examples/scenario.yaml \
   --seed 42 \
@@ -331,7 +331,7 @@ Aggregate the simulation outputs into structured and readable deliverables.
 
 ```bash
 cohuvo report build \
-  --personas out/personas.json1 \
+  --personas out/personas.jsonl \
   --graph out/graph \
   --sim out/sim \
   --scenario examples/scenario.yaml \
@@ -564,7 +564,7 @@ Under the proposed implementation, the output directory contains:
 | `audience.effective.json` | Parsed audience specification |
 | `scenario.effective.json` | Parsed survey specification |
 | `run.settings.json` | Execution settings with the API key excluded |
-| `personas.json1` | Sampled persona records |
+| `personas.jsonl` | Sampled persona records |
 | `responses.jsonl` | Structured responses and handled technical failures |
 | `run.summary.json` | Diagnostic aggregate summary |
 | `report.json` | Final structured survey report |
