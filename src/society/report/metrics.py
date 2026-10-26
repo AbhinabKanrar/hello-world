@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from typing import Final
 
 import numpy as np
@@ -240,22 +240,29 @@ def confidence(frame: Frame, *, seed: int, level: float = 0.95) -> Confidence:
 
 
 def summarize_trial(
-    records: Sequence[TrialRecord],
+    records: Iterable[TrialRecord],
     scenario: TrialScenarioSpec,
     *,
     expected_n: int,
 ) -> TrialReport:
-    if expected_n < 1 or len(records) != expected_n:
+    """Single streaming pass; memory is O(options) plus the persona-ID uniqueness set."""
+    if expected_n < 1:
         raise ValueError("trial record count does not match the requested population")
-    if any(record.index != i for i, record in enumerate(records)):
-        raise ValueError("trial records must have ordered, contiguous indices")
-    if len({record.persona_id for record in records}) != expected_n:
-        raise ValueError("duplicate persona IDs in trial records")
 
     counts = [0] * len(scenario.options)
     examples: list[list[str]] = [[] for _ in scenario.options]
     failures = 0
-    for record in records:
+    seen_ids: set[str] = set()
+    seen = 0
+    for position, record in enumerate(records):
+        if record.index != position:
+            raise ValueError("trial records must have ordered, contiguous indices")
+        if record.persona_id in seen_ids:
+            raise ValueError("duplicate persona IDs in trial records")
+        seen_ids.add(record.persona_id)
+        seen += 1
+        if seen > expected_n:
+            raise ValueError("trial record count does not match the requested population")
         if record.status == "technical_failure":
             failures += 1
             continue
@@ -266,6 +273,8 @@ def summarize_trial(
         counts[index] += 1
         if answer.reason is not None and len(examples[index]) < 3:
             examples[index].append(answer.reason)
+    if seen != expected_n:
+        raise ValueError("trial record count does not match the requested population")
 
     completed = expected_n - failures
     nonresponse = sum(

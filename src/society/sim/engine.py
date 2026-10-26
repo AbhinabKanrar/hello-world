@@ -8,17 +8,17 @@ Round r>0: router computes the dirty set (new peer shares, channel posts, events
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import uuid
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 
+from society.errors import LLMError
 from society.graph.model import SocialGraph
-from society.llm.base import ChatClient
+from society.llm.base import ChatClient, JsonRequest
 from society.schemas import Persona
 from society.sim import prompts
 from society.sim.inbox import Inbox, InboxRouter
@@ -31,11 +31,10 @@ from society.sim.schemas import (
     SimManifest,
     TrialRecord,
     TrialScenarioSpec,
-    trial_answer_schema
+    trial_answer_schema,
 )
 from society.sim.state import PopulationState
 from society.storage import append_jsonl
-from society.errors import LLMError
 
 _log = logging.getLogger(__name__)
 _EVENTS = "events.jsonl"
@@ -175,23 +174,29 @@ class SimulationEngine:
         *,
         exposure: bool,
     ) -> list[SimEvent]:
-        rows: list[SimEvent] = []
+        indices = sorted(inboxes)
 
-        async def one(i: int, box: Inbox) -> None:
+        def request(i: int) -> JsonRequest:
             user = (
                 prompts.exposure_prompt(self._cards[i], scenario_text)
                 if exposure
                 else prompts.update_prompt(
-                    self._cards[i], scenario_text, state.stance[i], box, self._names
+                    self._cards[i], scenario_text, state.stance[i], inboxes[i], self._names
                 )
             )
-            r = await self._client.complete_json(
-                system=prompts.SYSTEM,
-                user=user,
-                schema=Reaction,
-                temperature=0.7,
-                seed=_call_seed(self._seed, i, rnd),
-            )
+            return JsonRequest(system=prompts.SYSTEM, user=user, seed=_call_seed(self._seed, i, rnd))
+
+        rows: list[SimEvent] = []
+        failed = 0
+        async for position, r in self._client.complete_json_many(
+            (request(i) for i in indices), schema=Reaction, temperature=0.7
+        ):
+            i = indices[position]
+            if isinstance(r, LLMError):
+                failed += 1
+                _log.warning("reaction_failed", extra={"round": rnd, "persona_index": i})
+                continue
+            box = inboxes[i]
             state.apply(i, r, rnd)
             rows.append(
                 state.row(
@@ -205,10 +210,9 @@ class SimulationEngine:
                     events=len(box.events),
                 )
             )
-
-        async with asyncio.TaskGroup() as tg:
-            for i, box in inboxes.items():
-                tg.create_task(one(i, box))
+        if failed:
+            # Successful reactions are cached, so a rerun from the checkpoint only pays for these.
+            raise LLMError(f"{failed} persona reactions failed in round {rnd}; rerun to retry.")
         return rows
 
     # --------------------------------------------------------------- resume
@@ -238,53 +242,31 @@ async def run_trial(
     audience: str,
     scenario: TrialScenarioSpec,
     seed: int,
-    concurrency: int,
-) -> list[TrialRecord]:
+) -> AsyncIterator[TrialRecord]:
+    """Yield one record per persona in index order; handled LLM failures become records."""
     if not personas:
         raise ValueError("trial requires at least one persona")
-    if not 1 <= concurrency <= 256:
-        raise ValueError("concurrency must be between 1 and 256")
     if any(persona.index != i for i, persona in enumerate(personas)):
         raise ValueError("personas must have ordered, contiguous indices")
     if len({persona.id for persona in personas}) != len(personas):
         raise ValueError("persona IDs must be unique")
 
     schema = trial_answer_schema(len(scenario.options))
-    pending = iter(enumerate(personas))
-    records: list[TrialRecord | None] = [None] * len(personas)
-
-    async def worker() -> None:
-        # next(pending) and assignment execute on the same event-loop thread.
-        for index, persona in pending:
-            try:
-                answer = await client.complete_json(
-                    system=prompts.TRIAL_SYSTEM,
-                    user=prompts.trial_prompt(persona, audience, scenario),
-                    schema=schema,
-                    temperature=0.7,
-                    seed=_call_seed(seed, index, 0),
-                )
-            except LLMError:
-                # Do not log respondent content or provider response bodies.
-                _log.warning("trial_request_failed", extra={"persona_index": index})
-                records[index] = TrialRecord(
-                    index=index,
-                    persona_id=persona.id,
-                    status="technical_failure",
-                    answer=None,
-                )
-            else:
-                records[index] = TrialRecord(
-                    index=index,
-                    persona_id=persona.id,
-                    status="answered",
-                    answer=answer,
-                )
-
-    async with asyncio.TaskGroup() as tasks:
-        for _ in range(min(concurrency, len(personas))):
-            tasks.create_task(worker())
-
-    if any(record is None for record in records):
-        raise RuntimeError("trial completed without accounting for every persona")
-    return [record for record in records if record is not None]
+    requests = (
+        JsonRequest(
+            system=prompts.TRIAL_SYSTEM,
+            user=prompts.trial_prompt(persona, audience, scenario),
+            seed=_call_seed(seed, persona.index, 0),
+        )
+        for persona in personas
+    )
+    async for index, answer in client.complete_json_many(requests, schema=schema, temperature=0.7):
+        persona = personas[index]
+        if isinstance(answer, LLMError):
+            # Do not log respondent content or provider response bodies.
+            _log.warning("trial_request_failed", extra={"persona_index": index})
+            yield TrialRecord(
+                index=index, persona_id=persona.id, status="technical_failure", answer=None
+            )
+        else:
+            yield TrialRecord(index=index, persona_id=persona.id, status="answered", answer=answer)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import AsyncIterable, Iterable, Iterator
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -13,6 +13,18 @@ def write_jsonl(path: Path, rows: Iterable[BaseModel]) -> int:
     count = 0
     with path.open("w", encoding="utf-8", buffering=1 << 16) as fh:
         for row in rows:
+            fh.write(row.model_dump_json())
+            fh.write("\n")
+            count += 1
+    return count
+
+
+async def write_jsonl_async(path: Path, rows: AsyncIterable[BaseModel]) -> int:
+    """Stream rows produced by an async source; memory stays O(1) in row count."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    count = 0
+    with path.open("w", encoding="utf-8", buffering=1 << 16) as fh:
+        async for row in rows:
             fh.write(row.model_dump_json())
             fh.write("\n")
             count += 1

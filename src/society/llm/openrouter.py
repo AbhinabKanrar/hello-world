@@ -1,7 +1,13 @@
-"""OpenRouter chat with local Ollama embeddings.
+"""OpenRouter chat, embeddings, and Batch API.
 
 Owns its HTTP client, optional cache.
 Create one instance per CLI operation; close it after outstanding calls finish.
+
+Batch path (`complete_json_many`): requests are chunked by count and serialized bytes,
+streamed to POST /batches with an exact Content-Length, polled to a final status, matched
+back by custom_id, validated, cached, and yielded strictly in input order. Items the batch
+could not answer fall back to the synchronous correction loop. Cache keys cover only the
+per-request body, so sync and batch runs share entries.
 """
 
 from __future__ import annotations
@@ -11,10 +17,13 @@ import json
 import logging
 import math
 import random
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Iterable, Iterator, Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from functools import lru_cache
+from itertools import chain, islice
+from typing import cast
 
 import httpx
 import numpy as np
@@ -23,7 +32,7 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, TypeAdapter, Valid
 
 from society.config import Settings
 from society.errors import LLMError
-from society.llm.base import UsageMeter
+from society.llm.base import JsonRequest, UsageMeter, fan_out_json
 from society.llm.cache import ResponseCache
 
 _log = logging.getLogger(__name__)
@@ -31,6 +40,11 @@ _BASE_URL = "https://openrouter.ai/api/v1/"
 _RETRYABLE_STATUS = frozenset({408, 409, 425, 429, 500, 502, 503, 504})
 _SCHEMA_ADAPTER = TypeAdapter(dict[str, JsonValue])
 _JITTER = random.SystemRandom()
+_CACHE_ADAPTER = "openrouter-v2"
+_BATCH_ENDPOINT = "/v1/chat/completions"
+_BATCH_FINAL = frozenset({"completed", "failed", "expired", "cancelled"})
+_BATCH_FIRST_POLL_S = 15.0
+_ERROR_MESSAGE_LIMIT = 200
 
 
 class _WireModel(BaseModel):
@@ -97,10 +111,126 @@ class _EmbeddingResponse(_WireModel):
     usage: _EmbeddingUsage | None = None
 
 
+class _BatchItemError(_WireModel):
+    type: str | None = None
+    message: str = ""
+
+
+class _BatchItemResponse(_WireModel):
+    status_code: int
+    body: _Completion | None = None
+
+
+class _BatchResult(_WireModel):
+    custom_id: str
+    response: _BatchItemResponse | None = None
+    error: _BatchItemError | None = None
+
+
+class _BatchCounts(_WireModel):
+    total: int = Field(ge=0)
+    completed: int = Field(ge=0)
+    failed: int = Field(ge=0)
+
+
+class _BatchUsage(_WireModel):
+    prompt_tokens: int = Field(ge=0)
+    completion_tokens: int = Field(ge=0)
+    cost: float | None = Field(default=None, ge=0)
+
+
+class _Batch(_WireModel):
+    id: str
+    status: str
+    provider: str | None = None
+    request_counts: _BatchCounts | None = None
+    usage: _BatchUsage | None = None
+    results: list[_BatchResult] | None = None
+    error: _APIError | None = None
+
+
+class _ErrorEnvelope(_WireModel):
+    error: _APIError | None = None
+
+
 class _RetryableError(LLMError):
     def __init__(self, reason: str, *, retry_after_s: float | None = None) -> None:
         super().__init__(reason)
         self.retry_after_s = retry_after_s
+
+
+class _BatchTooLargeError(LLMError):
+    """HTTP 413: the chunk exceeds the per-batch request or byte limit."""
+
+
+@dataclass(slots=True)
+class _Chunk:
+    """A contiguous input range. Cache hits are resolved up front; `pending` go to a batch."""
+
+    start: int
+    items: list[JsonRequest | None] = field(default_factory=list)
+    keys: list[str | None] = field(default_factory=list)
+    results: list[BaseModel | LLMError | None] = field(default_factory=list)
+    pending: list[int] = field(default_factory=list)
+    bodies: list[bytes] = field(default_factory=list)
+    task: asyncio.Task[None] | None = None
+
+    @property
+    def size(self) -> int:
+        return len(self.results)
+
+    def add_cached(self, key: str, result: BaseModel) -> None:
+        self.items.append(None)
+        self.keys.append(key)
+        self.results.append(result)
+
+    def add_pending(self, item: JsonRequest, key: str, body: bytes) -> None:
+        self.pending.append(len(self.results))
+        self.items.append(item)
+        self.keys.append(key)
+        self.results.append(None)
+        self.bodies.append(body)
+
+
+def _api_message(content: bytes) -> str:
+    """API-supplied error text only; never echo request or generation content."""
+    try:
+        envelope = _ErrorEnvelope.model_validate_json(content)
+    except ValidationError:
+        return ""
+    return envelope.error.message[:_ERROR_MESSAGE_LIMIT] if envelope.error else ""
+
+
+def _final_content(completion: _Completion) -> str:
+    """Shared acceptance rules for a chat completion from either the sync or batch path."""
+    if completion.error is not None:
+        raise LLMError("OpenRouter returned an API error inside the completion.")
+    if len(completion.choices) != 1:
+        raise LLMError("OpenRouter returned an unexpected number of choices.")
+    choice = completion.choices[0]
+    if choice.error is not None:
+        raise LLMError("OpenRouter returned a choice-level error.")
+    if choice.message.refusal or choice.finish_reason == "content_filter":
+        raise LLMError("The provider declined the structured-output request.")
+    if choice.finish_reason == "length":
+        raise LLMError(
+            "OpenRouter output was truncated. Increase "
+            "SOCIETY_OPENROUTER_MAX_TOKENS or reduce reasoning effort."
+        )
+    if choice.finish_reason != "stop":
+        raise LLMError("OpenRouter did not return a normally completed response.")
+    content = choice.message.content
+    if not content or not content.strip():
+        raise LLMError("OpenRouter returned no final answer.")
+    return content
+
+
+def _dumps(value: object) -> bytes:
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+
+
+def _item_prefix(custom_id: int) -> bytes:
+    return b'{"custom_id":"%d","body":' % custom_id
 
 
 def _retry_after_seconds(value: str | None) -> float | None:
@@ -187,16 +317,21 @@ class OpenRouterClient:
                 "for example openai/gpt-oss-120b."
             )
 
-        providers = settings.openrouter_providers
-        if not providers or any(not p.strip() or p != p.strip() for p in providers):
-            raise LLMError("Configure at least one non-empty OpenRouter provider slug.")
-        if len(set(providers)) != len(providers):
-            raise LLMError("OpenRouter provider slugs must be unique.")
+        for name, providers in (
+            ("SOCIETY_OPENROUTER_PROVIDERS", settings.openrouter_providers),
+            ("SOCIETY_OPENROUTER_BATCH_PROVIDERS", settings.openrouter_batch_providers),
+        ):
+            if not providers or any(not p.strip() or p != p.strip() for p in providers):
+                raise LLMError(f"{name} needs at least one non-empty provider slug.")
+            if len(set(providers)) != len(providers):
+                raise LLMError(f"{name} slugs must be unique.")
 
         self._s = settings
         self._cache = cache
         self._closed = False
         self._sem = asyncio.Semaphore(settings.concurrency)
+        # Lowered at runtime when the API answers 413 with a smaller per-batch limit.
+        self._batch_cap = settings.openrouter_batch_max_requests
         self.usage = UsageMeter()
         self.embedding_usage = UsageMeter()
 
@@ -218,7 +353,7 @@ class OpenRouterClient:
         if self._closed:
             raise LLMError("OpenRouterClient is closed.")
 
-    def _payload(
+    def _body(
         self,
         *,
         system: str,
@@ -226,22 +361,17 @@ class OpenRouterClient:
         schema: type[BaseModel],
         temperature: float,
         seed: int | None,
+        max_tokens: int | None = None,
     ) -> dict[str, JsonValue]:
-        payload: dict[str, JsonValue] = {
+        """Provider-independent request body: identical for sync and batch, so cacheable."""
+        body: dict[str, JsonValue] = {
             "model": self._s.chat_model,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
-            "stream": False,
             "temperature": temperature,
-            "max_tokens": self._s.openrouter_max_tokens,
-            "provider": {
-                "only": [p for p in self._s.openrouter_providers],
-                "order": [p for p in self._s.openrouter_providers],
-                "allow_fallbacks": self._s.openrouter_allow_fallbacks,
-                "require_parameters": True,
-            },
+            "max_tokens": max_tokens or self._s.openrouter_max_tokens,
             "response_format": {
                 "type": "json_schema",
                 "json_schema": {
@@ -252,13 +382,54 @@ class OpenRouterClient:
             },
         }
         if seed is not None and self._s.openrouter_send_seed:
-            payload["seed"] = seed
+            body["seed"] = seed
         if self._s.openrouter_reasoning_effort is not None:
-            payload["reasoning"] = {
+            body["reasoning"] = {
                 "effort": self._s.openrouter_reasoning_effort,
                 "exclude": True,
             }
-        return payload
+        return body
+
+    def _payload(self, body: dict[str, JsonValue]) -> dict[str, JsonValue]:
+        """Sync chat/completions payload: body plus routing preferences."""
+        return {
+            **body,
+            "stream": False,
+            "provider": {
+                "only": list(self._s.openrouter_providers),
+                "order": list(self._s.openrouter_providers),
+                "allow_fallbacks": self._s.openrouter_allow_fallbacks,
+                "require_parameters": True,
+            },
+        }
+
+    @staticmethod
+    def _cache_key(body: dict[str, JsonValue], seed: int | None) -> str:
+        return ResponseCache.key(
+            adapter=_CACHE_ADAPTER,
+            base_url=_BASE_URL,
+            request=body,
+            logical_seed=seed,
+        )
+
+    def _store(
+        self,
+        key: str,
+        result: BaseModel,
+        *,
+        provider: str | None,
+        response_id: str | None,
+        model: str | None,
+    ) -> None:
+        if self._cache is None:
+            return
+        entry = _CacheEntry(
+            content=result.model_dump_json(),
+            provider=provider,
+            response_id=response_id,
+            model=model,
+        )
+        self._cache.put(key, entry.model_dump_json())
 
     def _cached[T: BaseModel](self, key: str, schema: type[T]) -> T | None:
         if self._cache is None:
@@ -295,19 +466,14 @@ class OpenRouterClient:
         seed: int | None = None,
     ) -> T:
         self._ensure_open()
-        payload = self._payload(
+        body = self._body(
             system=system,
             user=user,
             schema=schema,
             temperature=temperature,
             seed=seed,
         )
-        key = ResponseCache.key(
-            adapter="openrouter-v1",
-            base_url=_BASE_URL,
-            request=payload,
-            logical_seed=seed,
-        )
+        key = self._cache_key(body, seed)
         cached = self._cached(key, schema)
         if cached is not None:
             return cached
@@ -321,7 +487,7 @@ class OpenRouterClient:
                 return cached
             try:
                 async with asyncio.timeout(self._s.openrouter_call_timeout_s):
-                    return await self._generate(payload, schema, key)
+                    return await self._generate(self._payload(body), schema, key)
             except TimeoutError:
                 raise LLMError("OpenRouter call exceeded its total time budget.") from None
 
@@ -333,23 +499,7 @@ class OpenRouterClient:
     ) -> T:
         for attempt in range(self._s.max_validation_retries + 1):
             response = await self._post(payload)
-            if len(response.choices) != 1:
-                raise LLMError("OpenRouter returned an unexpected number of choices.")
-
-            choice = response.choices[0]
-            if choice.message.refusal or choice.finish_reason == "content_filter":
-                raise LLMError("The provider declined the structured-output request.")
-            if choice.finish_reason == "length":
-                raise LLMError(
-                    "OpenRouter output was truncated. Increase "
-                    "SOCIETY_OPENROUTER_MAX_TOKENS or reduce reasoning effort."
-                )
-            if choice.finish_reason != "stop":
-                raise LLMError("OpenRouter did not return a normally completed response.")
-
-            content = choice.message.content
-            if not content or not content.strip():
-                raise LLMError("OpenRouter returned no final answer.")
+            content = _final_content(response)
 
             try:
                 result = schema.model_validate_json(content)
@@ -384,14 +534,13 @@ class OpenRouterClient:
                 )
                 continue
 
-            if self._cache is not None:
-                entry = _CacheEntry(
-                    content=result.model_dump_json(),
-                    provider=response.provider,
-                    response_id=response.id,
-                    model=response.model,
-                )
-                self._cache.put(cache_key, entry.model_dump_json())
+            self._store(
+                cache_key,
+                result,
+                provider=response.provider,
+                response_id=response.id,
+                model=response.model,
+            )
             return result
 
         raise AssertionError("unreachable")
@@ -493,6 +642,414 @@ class OpenRouterClient:
 
         raise AssertionError("unreachable")
 
+    # ------------------------------------------------------------------ batch
+    async def complete_json_many[T: BaseModel](
+        self,
+        requests: Iterable[JsonRequest],
+        *,
+        schema: type[T],
+        temperature: float = 0.8,
+    ) -> AsyncIterator[tuple[int, T | LLMError]]:
+        """Yield `(position, result)` in input order. Small inputs use the sync path."""
+        self._ensure_open()
+        s = self._s
+        it = iter(requests)
+        head = list(islice(it, s.openrouter_batch_min_requests))
+        stream = chain(head, it)
+
+        if not s.openrouter_batch_enabled or len(head) < s.openrouter_batch_min_requests:
+            async for item in fan_out_json(
+                self, stream, schema=schema, temperature=temperature, concurrency=s.concurrency
+            ):
+                yield item
+            return
+
+        in_flight = asyncio.Semaphore(s.openrouter_batch_max_in_flight)
+        # Bounded so an all-cached input cannot materialize every chunk at once.
+        queue: asyncio.Queue[_Chunk | Exception | None] = asyncio.Queue(
+            maxsize=s.openrouter_batch_max_in_flight + 1
+        )
+        tasks: set[asyncio.Task[None]] = set()
+
+        async def produce() -> None:
+            try:
+                for chunk in self._chunks(stream, schema, temperature):
+                    if chunk.pending:
+                        await in_flight.acquire()
+                        chunk.task = asyncio.create_task(
+                            self._run_chunk(chunk, schema, temperature, in_flight)
+                        )
+                        tasks.add(chunk.task)
+                        chunk.task.add_done_callback(tasks.discard)
+                    await queue.put(chunk)
+                    await asyncio.sleep(0)  # let pollers run between large serializations
+            except Exception as exc:
+                await queue.put(exc)
+            else:
+                await queue.put(None)
+
+        producer = asyncio.create_task(produce())
+        try:
+            while True:
+                chunk = await queue.get()
+                if chunk is None:
+                    return
+                if isinstance(chunk, Exception):
+                    raise chunk
+                if chunk.task is not None:
+                    await chunk.task
+                for offset, result in enumerate(chunk.results):
+                    if result is None:
+                        raise RuntimeError("batch chunk left a result slot unfilled")
+                    yield chunk.start + offset, cast("T | LLMError", result)
+                chunk.results = []
+        finally:
+            producer.cancel()
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(producer, *tasks, return_exceptions=True)
+
+    def _chunks(
+        self,
+        requests: Iterable[JsonRequest],
+        schema: type[BaseModel],
+        temperature: float,
+    ) -> Iterator[_Chunk]:
+        """Contiguous ranges bounded by request count and serialized bytes; cache hits are free."""
+        max_bytes = self._s.openrouter_batch_max_bytes
+        chunk: _Chunk | None = None
+        nbytes = 0
+
+        for position, request in enumerate(requests):
+            body = self._body(
+                system=request.system,
+                user=request.user,
+                schema=schema,
+                temperature=temperature,
+                seed=request.seed,
+                max_tokens=self._s.openrouter_batch_max_tokens,
+            )
+            key = self._cache_key(body, request.seed)
+            cached = self._cached(key, schema)
+            encoded = None if cached is not None else _dumps(body)
+            item_bytes = 0 if encoded is None else len(encoded) + len(_item_prefix(position)) + 2
+
+            if chunk is not None and (
+                chunk.size >= self._batch_cap
+                or (encoded is not None and chunk.pending and nbytes + item_bytes > max_bytes)
+            ):
+                yield chunk
+                chunk = None
+            if chunk is None:
+                chunk = _Chunk(start=position)
+                nbytes = 0
+
+            if cached is not None:
+                chunk.add_cached(key, cached)
+            else:
+                assert encoded is not None
+                chunk.add_pending(request, key, encoded)
+                nbytes += item_bytes
+
+        if chunk is not None:
+            yield chunk
+
+    async def _run_chunk(
+        self,
+        chunk: _Chunk,
+        schema: type[BaseModel],
+        temperature: float,
+        in_flight: asyncio.Semaphore,
+    ) -> None:
+        """Submit, wait, collect, fall back, release. Fills every `chunk.results` slot."""
+        try:
+            groups: list[tuple[list[int], list[bytes]]] = [
+                ([chunk.start + o for o in chunk.pending], chunk.bodies)
+            ]
+            chunk.bodies = []
+            submitted: list[tuple[list[int], _Batch]] = []
+            while groups:
+                ids, bodies = groups.pop()
+                try:
+                    submitted.append((ids, await self._submit_batch(ids, bodies)))
+                except _BatchTooLargeError:
+                    if len(ids) == 1:
+                        raise LLMError("A single batch request exceeds the API size limit.") from None
+                    mid = len(ids) // 2
+                    self._batch_cap = max(1, min(self._batch_cap, mid))
+                    _log.warning("openrouter_batch_split", extra={"new_cap": self._batch_cap})
+                    groups.append((ids[:mid], bodies[:mid]))
+                    groups.append((ids[mid:], bodies[mid:]))
+
+            finals = await asyncio.gather(
+                *(self._await_batch(batch.id) for _, batch in submitted)
+            )
+            fallback: list[int] = []
+            for (ids, _), final in zip(submitted, finals, strict=True):
+                fallback.extend(self._collect(chunk, ids, final, schema))
+                await self._delete_batch(final.id)
+
+            if fallback:
+                _log.info(
+                    "openrouter_batch_fallback",
+                    extra={"chunk_start": chunk.start, "count": len(fallback)},
+                )
+                await asyncio.gather(
+                    *(self._fallback(chunk, offset, schema, temperature) for offset in fallback)
+                )
+        finally:
+            in_flight.release()
+
+    async def _fallback(
+        self, chunk: _Chunk, offset: int, schema: type[BaseModel], temperature: float
+    ) -> None:
+        item = chunk.items[offset]
+        if item is None:
+            raise RuntimeError("fallback requested for a cached item")
+        try:
+            chunk.results[offset] = await self.complete_json(
+                system=item.system,
+                user=item.user,
+                schema=schema,
+                temperature=temperature,
+                seed=item.seed,
+            )
+        except LLMError as exc:
+            chunk.results[offset] = exc
+
+    def _batch_head(self) -> bytes:
+        # Field order matters: the API streams the body and requires `requests` last.
+        head = {
+            "endpoint": _BATCH_ENDPOINT,
+            "model": self._s.chat_model,
+            "provider": {
+                "only": list(self._s.openrouter_batch_providers),
+                "allow_fallbacks": self._s.openrouter_allow_fallbacks,
+            },
+            "completion_window": "24h",
+        }
+        return _dumps(head)[:-1] + b',"requests":['
+
+    async def _submit_batch(self, ids: Sequence[int], bodies: Sequence[bytes]) -> _Batch:
+        head = self._batch_head()
+        length = (
+            len(head)
+            + sum(len(_item_prefix(i)) + len(b) + 1 for i, b in zip(ids, bodies, strict=True))
+            + max(len(ids) - 1, 0)
+            + 2
+        )
+
+        async def content() -> AsyncIterator[bytes]:
+            yield head
+            for n, (i, b) in enumerate(zip(ids, bodies, strict=True)):
+                yield (b"," if n else b"") + _item_prefix(i) + b + b"}"
+            yield b"]}"
+
+        s = self._s
+        timeout = httpx.Timeout(s.request_timeout_s, connect=10.0, write=s.openrouter_call_timeout_s)
+        delay = min(s.retry_base_delay_s, s.openrouter_max_retry_delay_s)
+        for attempt in range(s.max_retries + 1):
+            try:
+                response = await self._http.post(
+                    "batches",
+                    content=content(),
+                    headers={"Content-Length": str(length)},
+                    timeout=timeout,
+                )
+            except httpx.TransportError as exc:
+                if attempt >= s.max_retries:
+                    raise LLMError("OpenRouter batch submit retries exhausted.") from None
+                sleep_for = _JITTER.uniform(delay / 2, delay)
+                _log.warning(
+                    "openrouter_batch_submit_retry",
+                    extra={"attempt": attempt + 1, "error_type": type(exc).__name__},
+                )
+                await asyncio.sleep(sleep_for)
+                delay = min(delay * 2, s.openrouter_max_retry_delay_s)
+                continue
+
+            code = response.status_code
+            if code == 413:
+                raise _BatchTooLargeError(_api_message(response.content))
+            if code == 402:
+                raise LLMError(
+                    "OpenRouter rejected the batch: estimated cost exceeds the credit balance. "
+                    "Add credits or lower SOCIETY_OPENROUTER_BATCH_MAX_REQUESTS."
+                )
+            if code in _RETRYABLE_STATUS:
+                if attempt >= s.max_retries:
+                    raise LLMError(f"OpenRouter batch submit HTTP {code} after retries.")
+                retry_after = _retry_after_seconds(response.headers.get("Retry-After")) or 0.0
+                # 429 here means too many batches in progress: wait a poll interval, not ms.
+                floor = s.openrouter_batch_poll_s if code == 429 else delay
+                sleep_for = max(retry_after, floor)
+                _log.warning(
+                    "openrouter_batch_submit_retry",
+                    extra={"attempt": attempt + 1, "status": code, "sleep_s": round(sleep_for, 1)},
+                )
+                await asyncio.sleep(sleep_for)
+                delay = min(delay * 2, s.openrouter_max_retry_delay_s)
+                continue
+            if not response.is_success:
+                raise LLMError(
+                    f"OpenRouter batch submit HTTP {code}: {_api_message(response.content)}"
+                )
+            try:
+                batch = _Batch.model_validate_json(response.content)
+            except ValidationError:
+                raise LLMError("OpenRouter returned a malformed batch acknowledgement.") from None
+            _log.info(
+                "openrouter_batch_submitted",
+                extra={
+                    "batch_id": batch.id,
+                    "provider": batch.provider,
+                    "requests": len(ids),
+                    "bytes": length,
+                },
+            )
+            return batch
+
+        raise AssertionError("unreachable")
+
+    async def _await_batch(self, batch_id: str) -> _Batch:
+        """Poll until a final status with results present. Timeout leaves the batch running."""
+        s = self._s
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + s.openrouter_batch_max_wait_s
+        delay = min(_BATCH_FIRST_POLL_S, s.openrouter_batch_poll_s)
+        consecutive_errors = 0
+
+        while True:
+            await asyncio.sleep(delay)
+            delay = s.openrouter_batch_poll_s
+            try:
+                response = await self._http.get(f"batches/{batch_id}")
+            except httpx.TransportError:
+                consecutive_errors += 1
+                if consecutive_errors > s.max_retries:
+                    raise LLMError(f"Lost contact while polling batch {batch_id}.") from None
+                continue
+
+            code = response.status_code
+            if code == 429:
+                delay = s.openrouter_batch_poll_s * 2
+                continue
+            if code >= 500:
+                consecutive_errors += 1
+                if consecutive_errors > s.max_retries:
+                    raise LLMError(f"OpenRouter kept failing while polling batch {batch_id}.")
+                continue
+            if not response.is_success:
+                raise LLMError(
+                    f"OpenRouter batch {batch_id} poll HTTP {code}: "
+                    f"{_api_message(response.content)}"
+                )
+            consecutive_errors = 0
+
+            try:
+                batch = _Batch.model_validate_json(response.content)
+            except ValidationError:
+                raise LLMError(f"OpenRouter returned a malformed batch {batch_id}.") from None
+
+            if batch.status in _BATCH_FINAL and (
+                batch.status != "completed" or batch.results is not None
+            ):
+                return batch
+            if loop.time() >= deadline:
+                raise LLMError(
+                    f"Batch {batch_id} did not finish within the wait limit; "
+                    "it continues server-side and results stay readable for 30 days."
+                )
+
+    def _collect(
+        self,
+        chunk: _Chunk,
+        ids: Sequence[int],
+        batch: _Batch,
+        schema: type[BaseModel],
+    ) -> list[int]:
+        """Fill result slots from one final batch; return offsets needing the sync fallback."""
+        counts = batch.request_counts
+        _log.info(
+            "openrouter_batch_final",
+            extra={
+                "batch_id": batch.id,
+                "status": batch.status,
+                "provider": batch.provider,
+                "total": counts.total if counts else None,
+                "completed": counts.completed if counts else None,
+                "failed": counts.failed if counts else None,
+                "prompt_tokens": batch.usage.prompt_tokens if batch.usage else None,
+                "completion_tokens": batch.usage.completion_tokens if batch.usage else None,
+                "cost_usd": batch.usage.cost if batch.usage else None,
+            },
+        )
+        if batch.status != "completed" or batch.results is None:
+            reason = batch.error.message[:_ERROR_MESSAGE_LIMIT] if batch.error else ""
+            error = LLMError(f"OpenRouter batch {batch.id} ended {batch.status}: {reason}")
+            for position in ids:
+                chunk.results[position - chunk.start] = error
+            return []
+
+        if batch.usage is not None:
+            self.usage.add(
+                batch.usage.prompt_tokens,
+                batch.usage.completion_tokens,
+                requests=counts.completed if counts else len(batch.results),
+            )
+
+        expected = set(ids)
+        fallback: list[int] = []
+        for result in batch.results:
+            try:
+                position = int(result.custom_id)
+            except ValueError:
+                continue
+            if position not in expected:
+                continue
+            expected.discard(position)
+            offset = position - chunk.start
+            response = result.response
+            if result.error is not None or response is None or response.body is None:
+                fallback.append(offset)
+                continue
+            try:
+                parsed = schema.model_validate_json(_final_content(response.body))
+            except (LLMError, ValidationError):
+                fallback.append(offset)
+                continue
+            key = chunk.keys[offset]
+            if key is not None:
+                self._store(
+                    key,
+                    parsed,
+                    provider=batch.provider,
+                    response_id=response.body.id,
+                    model=response.body.model,
+                )
+            chunk.results[offset] = parsed
+
+        # Results the API never returned are retried individually rather than dropped.
+        fallback.extend(position - chunk.start for position in expected)
+        return fallback
+
+    async def _delete_batch(self, batch_id: str) -> None:
+        """Best effort: results are already in memory, and the API expires them anyway."""
+        try:
+            response = await self._http.delete(f"batches/{batch_id}")
+        except httpx.TransportError as exc:
+            _log.warning(
+                "openrouter_batch_delete_failed",
+                extra={"batch_id": batch_id, "error_type": type(exc).__name__},
+            )
+            return
+        if not response.is_success:
+            _log.warning(
+                "openrouter_batch_delete_failed",
+                extra={"batch_id": batch_id, "status": response.status_code},
+            )
+
+    # ------------------------------------------------------------- embeddings
     @staticmethod
     def _embedding_matrix(
         response: _EmbeddingResponse,
