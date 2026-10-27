@@ -12,7 +12,7 @@ cohuvo sim run --personas out/personas.jsonl --graph out/graph --scenario exampl
 cohuvo report build --personas out/personas.jsonl --graph out/graph --sim out/sim --scenario examples/scenario.yaml --seed 42 --out-dir out/report
 
 cohuvo survey run \
-  --audience examples/audience.yaml \
-  --scenario examples/scenario.yaml \
+  --audience examples/lam-meat/audience.yaml \
+  --scenario examples/lam-meat/scenario.yaml \
   --seed 42 \
   --out-dir out/lab-grown-meat

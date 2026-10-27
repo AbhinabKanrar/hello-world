@@ -19,7 +19,7 @@ class Settings(BaseSettings):
 
     openrouter_api_key: SecretStr | None = None
     openrouter_providers: tuple[str, ...] = ("near-ai", "venice", "coreweave", "dekallm", "deepinfra")
-    openrouter_allow_fallbacks: bool = True
+    openrouter_allow_fallbacks: bool = False
     openrouter_send_seed: bool = True
     openrouter_reasoning_effort: Literal["low", "medium", "high"] | None = "medium"
     openrouter_max_tokens: int = Field(31_072, ge=256, le=131_072)
@@ -31,10 +31,10 @@ class Settings(BaseSettings):
     # polled to a final status, and results are matched by custom_id.
     openrouter_batch_enabled: bool = True
     openrouter_batch_min_requests: int = Field(
-        32, ge=1, description="Fewer requests than this use the synchronous path."
+        10, ge=1, description="Fewer requests than this use the synchronous path."
     )
     openrouter_batch_max_requests: int = Field(
-        5_000, ge=1, description="Per-batch request cap; lowered automatically on HTTP 413."
+        4_096, ge=1, description="Per-batch request cap; lowered automatically on HTTP 413."
     )
     openrouter_batch_max_bytes: int = Field(
         128 << 20, ge=1 << 20, le=200 << 20, description="Per-batch serialized body cap."

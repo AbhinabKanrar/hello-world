@@ -671,6 +671,12 @@ class OpenRouterClient:
         )
         tasks: set[asyncio.Task[None]] = set()
 
+        def settled(task: asyncio.Task[None]) -> None:
+            tasks.discard(task)
+            if not task.cancelled():
+                # The consumer re-raises via `await chunk.task`; this only marks it retrieved.
+                task.exception()
+
         async def produce() -> None:
             try:
                 for chunk in self._chunks(stream, schema, temperature):
@@ -680,7 +686,7 @@ class OpenRouterClient:
                             self._run_chunk(chunk, schema, temperature, in_flight)
                         )
                         tasks.add(chunk.task)
-                        chunk.task.add_done_callback(tasks.discard)
+                        chunk.task.add_done_callback(settled)
                     await queue.put(chunk)
                     await asyncio.sleep(0)  # let pollers run between large serializations
             except Exception as exc:
@@ -872,9 +878,14 @@ class OpenRouterClient:
             if code == 413:
                 raise _BatchTooLargeError(_api_message(response.content))
             if code == 402:
+                # The estimate assumes every request emits max_tokens; that is the lever.
+                cap = self._s.openrouter_batch_max_tokens or self._s.openrouter_max_tokens
                 raise LLMError(
-                    "OpenRouter rejected the batch: estimated cost exceeds the credit balance. "
-                    "Add credits or lower SOCIETY_OPENROUTER_BATCH_MAX_REQUESTS."
+                    "OpenRouter rejected the batch: estimated cost exceeds the credit balance "
+                    f"({len(ids)} requests x max_tokens={cap}). "
+                    "Set SOCIETY_OPENROUTER_BATCH_MAX_TOKENS to a realistic output cap, "
+                    "add credits, or lower SOCIETY_OPENROUTER_BATCH_MAX_REQUESTS. "
+                    f"API: {_api_message(response.content)}"
                 )
             if code in _RETRYABLE_STATUS:
                 if attempt >= s.max_retries:
