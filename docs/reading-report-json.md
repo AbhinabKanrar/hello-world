@@ -425,12 +425,14 @@ Read every quote before publishing:
 
 | Field | Meaning |
 |---|---|
-| `summary` | 120–200-word summary written by the configured chat model. |
-| `recommendations` | 1–5 recommendations. |
+| `summary` | Summary written by the configured chat model. The prompt asks for 120–200 words; validation accepts 100–250. |
+| `recommendations` | Exactly 3 distinct recommendations of 20–300 characters each. |
 
 The model receives only `headline`, top/bottom reliable segments, price summary, top objections, and events. It does **not** receive `confidence`, `spread`, or `voices`.
 
-> In this example, the narrative contains placeholders (`"..."` and empty strings). Regenerate the report or check `report.md` before publishing.
+Placeholder text (`...`, `…`, `(truncated)`, `TBD`, `TODO`) or empty recommendations fail validation. The validation errors are sent back to the model to correct. If retries still fail, `narrative` is `null` and the log contains `narrative_failed`. The other sections are still written.
+
+> This example was generated before that validation existed, so it contains placeholders (`"..."` and empty strings). Rebuild the report to replace them.
 
 ### Show it as
 

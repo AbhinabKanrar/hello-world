@@ -25,7 +25,8 @@ Computed results (authoritative):
 {stats}
  
 Write `summary` (120-200 words: verdict, who it resonates with, the main blockers, pricing read, and
-how it spread or stalled) and 3 concrete `recommendations` the founder can act on next week."""
+how it spread or stalled) and exactly 3 distinct, concrete `recommendations` the founder can act on
+next week. Write complete text: no placeholders, ellipses, "truncated" markers, or empty strings."""
 
 
 def _compact(

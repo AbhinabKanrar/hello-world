@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
+from society.errors import LLMError
 from society.graph.model import SocialGraph
 from society.llm.base import ChatClient
 from society.report import metrics
@@ -20,7 +21,6 @@ from society.report.schemas import Quote, Report, SegmentStat
 from society.report.spread import spread_stats
 from society.schemas import Persona
 from society.sim.schemas import ScenarioSpec
-
 
 _log = logging.getLogger(__name__)
 _VOICE_SEGMENTS = 3
@@ -65,16 +65,20 @@ class ReportBuilder:
         voices = _voices(frame, personas, segments)
         narrative = None
         if self._narrative and self._client is not None:
-            narrative = await write_narrative(
-                self._client,
-                name=scenario.name,
-                headline=head,
-                segments=segments,
-                price=price,
-                objections=objections,
-                events=events,
-                seed=self._seed,
-            )
+            try:
+                narrative = await write_narrative(
+                    self._client,
+                    name=scenario.name,
+                    headline=head,
+                    segments=segments,
+                    price=price,
+                    objections=objections,
+                    events=events,
+                    seed=self._seed,
+                )
+            except LLMError as exc:
+                # The narrative is optional; keep the deterministic sections instead of failing.
+                _log.warning("narrative_failed", extra={"error": str(exc)})
         _log.info(
             "report_built", extra={"verdict": head.verdict, "final_adoption": head.final_adoption}
         )
@@ -96,19 +100,13 @@ class ReportBuilder:
     @staticmethod
     def write(report: Report, out_dir: Path) -> tuple[Path, Path]:
         # Render first so a rendering failure does not overwrite existing outputs.
-        html_content = to_html(report)
         json_content = report.model_dump_json(indent=2)
-        markdown_content = to_markdown(report)
 
         out_dir.mkdir(parents=True, exist_ok=True)
         js = out_dir / "report.json"
-        md = out_dir / "report.md"
-        html = out_dir / "report.html"
 
         js.write_text(json_content, encoding="utf-8")
-        md.write_text(markdown_content, encoding="utf-8")
-        html.write_text(html_content, encoding="utf-8")
-        return js, md
+        return js
 
 
 def _voices(

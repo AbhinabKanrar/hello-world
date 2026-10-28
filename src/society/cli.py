@@ -305,13 +305,11 @@ def report_build(
                         settings=settings,
                         output=out_dir
                     )
-            js, md = ReportBuilder.write(report, out_dir)
+            js = ReportBuilder.write(report, out_dir)
             _log.info(
                 "done",
                 extra={
                     "json": str(js),
-                    "markdown": str(md),
-                    "html": str(out_dir / "report.html"),
                     "verdict": report.headline.verdict,
                     "final_adoption": report.headline.final_adoption,
                 },
@@ -404,20 +402,8 @@ def survey_run(
                 "diagnostics saved, final report withheld. Restart in a fresh directory."
             )
 
-        markdown = trial_to_markdown(report)
         (out_dir / "report.json").write_text(
             report.model_dump_json(indent=2), encoding="utf-8"
-        )
-        (out_dir / "report.md").write_text(markdown, encoding="utf-8")
-        # Intentionally minimal, offline HTML; no generated text becomes HTML markup.
-        (out_dir / "report.html").write_text(
-            '<!doctype html><html lang="en"><head><meta charset="utf-8">'
-            '<meta http-equiv="Content-Security-Policy" '
-            'content="default-src \'none\'; base-uri \'none\'; form-action \'none\'">'
-            "<title>Cohuvo survey report</title></head><body><pre>"
-            + html.escape(markdown)
-            + "</pre></body></html>",
-            encoding="utf-8",
         )
         (out_dir / "SUCCESS").touch(exist_ok=False)
         _log.info("survey_done", extra={"out": str(out_dir), "valid": report.valid})

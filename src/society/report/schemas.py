@@ -2,15 +2,30 @@
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Annotated, Final, Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from society.schemas import StrictModel
 
 Verdict = Literal["strong", "promising", "weak", "dead"]
 Trend = Literal["rising", "stable", "fading"]
+
+# Looser than the prompt's 120-200 words so near-miss answers are not rejected.
+NARRATIVE_MIN_WORDS: Final = 100
+NARRATIVE_MAX_WORDS: Final = 250
+NARRATIVE_RECOMMENDATIONS: Final = 3
+_PLACEHOLDER: Final = re.compile(r"\.{3}|…|\(truncated\)|\bTBD\b|\bTODO\b", re.IGNORECASE)
+
+Recommendation = Annotated[str, Field(min_length=20, max_length=300)]
+
+
+def _reject_placeholder(value: str, field: str) -> str:
+    if _PLACEHOLDER.search(value):
+        raise ValueError(f"{field} contains placeholder text; write the complete content")
+    return value
 
 
 class RoundPoint(StrictModel):
@@ -109,8 +124,31 @@ class Confidence(StrictModel):
 
 
 class Narrative(StrictModel):
-    summary: str = Field(min_length=50, max_length=1_500)
-    recommendations: list[str] = Field(min_length=1, max_length=5)
+    """Validation errors are fed back to the model, so messages must say how to fix the output."""
+
+    summary: str = Field(min_length=50, max_length=2_000)
+    recommendations: list[Recommendation] = Field(
+        min_length=NARRATIVE_RECOMMENDATIONS, max_length=NARRATIVE_RECOMMENDATIONS
+    )
+
+    @field_validator("summary")
+    @classmethod
+    def _complete_summary(cls, value: str) -> str:
+        words = len(value.split())
+        if not NARRATIVE_MIN_WORDS <= words <= NARRATIVE_MAX_WORDS:
+            raise ValueError(
+                f"summary must be {NARRATIVE_MIN_WORDS}-{NARRATIVE_MAX_WORDS} words, got {words}"
+            )
+        return _reject_placeholder(value, "summary")
+
+    @field_validator("recommendations")
+    @classmethod
+    def _complete_recommendations(cls, value: list[str]) -> list[str]:
+        for item in value:
+            _reject_placeholder(item, "recommendation")
+        if len({item.casefold() for item in value}) != len(value):
+            raise ValueError("recommendations must be distinct")
+        return value
 
 
 class Report(StrictModel):

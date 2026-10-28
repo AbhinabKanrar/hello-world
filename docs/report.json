@@ -1,7 +1,7 @@
 {
   "scenario": "MealMind launch",
   "scenario_hash": "2c819392ba972f64",
-  "generated_at": "2026-10-27T20:49:54.753264Z",
+  "generated_at": "2026-10-28T16:59:27.108988Z",
   "headline": {
     "final_adoption": 0.32,
     "peak_adoption": 0.32,
@@ -687,11 +687,11 @@
     "cache_hit_ratio": 0.0
   },
   "narrative": {
-    "summary": "The MealMind ... (truncated)... ... ... ... ... ... ... ... ... ... ... ... ... ... ... ... ... ... ... ...",
+    "summary": "The launch shows a promising verdict with a final and peak adoption of 32% after round 2, but growth stalled after a price hike to $19/month (‑0.12 adoption) and a viral TikTok highlighting repeated meals (+0.04 adoption). The product resonates most with high‑tech‑comfort users (46.7% adoption, lift 1.46), prospects (42.1% adoption, lift 1.32), low price‑sensitivity shoppers (41.7% adoption, lift 1.30), part‑time workers and those citing rising grocery bills (both 36.4% adoption, lift 1.14). Main blockers are concerns about meal repetition (24% of objections), price discomfort at $19/month (16%), and demand for concrete savings proof (8%). Pricing read shows a $15 list price captures 76% of respondents, median max willingness is $20, and suggested tiers of $19‑$21.25 align with willingness but risk further adoption loss if not paired with value reinforcement. The spread was initially rising, then stalled by price sensitivity and perceived lack of variety.",
     "recommendations": [
-      "...",
-      "",
-      ""
+      "Deploy a weekly recipe‑rotation engine that guarantees at least 5 new meals per week for each user segment, and announce the change in a targeted email to high‑tech‑comfort and low‑price‑sensitivity cohorts within the next 7 days.",
+      "Launch a 30‑day savings guarantee pilot: offer a $5 discount on the first month if users don’t see at least a 20% reduction in grocery spend, and provide a simple before‑and‑after bill tracker in the app to collect proof of concept.",
+      "Create a $15 entry‑tier promotional bundle for part‑time workers and prospect users, bundled with a referral credit for each friend who signs up, and roll it out this week to recapture price‑sensitive respondents while monitoring adoption lift."
     ]
   }
 }
