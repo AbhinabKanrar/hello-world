@@ -428,11 +428,20 @@ Read every quote before publishing:
 | `summary` | Summary written by the configured chat model. The prompt asks for 120–200 words; validation accepts 100–250. |
 | `recommendations` | Exactly 3 distinct recommendations of 20–300 characters each. |
 
-The model receives only `headline`, top/bottom reliable segments, price summary, top objections, and events. It does **not** receive `confidence`, `spread`, or `voices`.
+The model receives `headline`, the round-by-round curve (without event labels), top/bottom reliable segments, the price summary with the share willing to pay at each quartile, top objections, events, the spread summary with the conversions credited to the top 3 influencers (without names), and `confidence` plus the width of its range. It does **not** receive `voices`. The prompt tells it to:
+
+- describe the trend as `headline.trend` states;
+- treat price quartiles as descriptive, not as recommended prices;
+- use only numbers from the input, with no invented durations, discounts or guarantees;
+- describe shares as observations, not targets;
+- never name or suggest contacting simulated personas;
+- call the confidence range wide when it spans more than 20 points.
+
+No-break spaces and hyphens (`U+00A0`, `U+202F`, `U+2011`, …) are replaced with plain characters.
 
 Placeholder text (`...`, `…`, `(truncated)`, `TBD`, `TODO`) or empty recommendations fail validation. The validation errors are sent back to the model to correct. If retries still fail, `narrative` is `null` and the log contains `narrative_failed`. The other sections are still written.
 
-> This example was generated before that validation existed, so it contains placeholders (`"..."` and empty strings). Rebuild the report to replace them.
+> The model can still misstate numbers. Check the narrative against the sections above before publishing.
 
 ### Show it as
 

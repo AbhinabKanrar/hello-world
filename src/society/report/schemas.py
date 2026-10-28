@@ -18,14 +18,18 @@ NARRATIVE_MIN_WORDS: Final = 100
 NARRATIVE_MAX_WORDS: Final = 250
 NARRATIVE_RECOMMENDATIONS: Final = 3
 _PLACEHOLDER: Final = re.compile(r"\.{3}|…|\(truncated\)|\bTBD\b|\bTODO\b", re.IGNORECASE)
+# Models emit typographic no-break spaces/hyphens that break plain-text search and diffs.
+_PLAIN_TEXT: Final = str.maketrans(
+    {"\u00a0": " ", "\u2007": " ", "\u2009": " ", "\u202f": " ", "\u2010": "-", "\u2011": "-"}
+)
 
 Recommendation = Annotated[str, Field(min_length=20, max_length=300)]
 
 
-def _reject_placeholder(value: str, field: str) -> str:
+def _clean(value: str, field: str) -> str:
     if _PLACEHOLDER.search(value):
         raise ValueError(f"{field} contains placeholder text; write the complete content")
-    return value
+    return value.translate(_PLAIN_TEXT)
 
 
 class RoundPoint(StrictModel):
@@ -139,16 +143,15 @@ class Narrative(StrictModel):
             raise ValueError(
                 f"summary must be {NARRATIVE_MIN_WORDS}-{NARRATIVE_MAX_WORDS} words, got {words}"
             )
-        return _reject_placeholder(value, "summary")
+        return _clean(value, "summary")
 
     @field_validator("recommendations")
     @classmethod
     def _complete_recommendations(cls, value: list[str]) -> list[str]:
-        for item in value:
-            _reject_placeholder(item, "recommendation")
-        if len({item.casefold() for item in value}) != len(value):
+        cleaned = [_clean(item, "recommendation") for item in value]
+        if len({item.casefold() for item in cleaned}) != len(cleaned):
             raise ValueError("recommendations must be distinct")
-        return value
+        return cleaned
 
 
 class Report(StrictModel):

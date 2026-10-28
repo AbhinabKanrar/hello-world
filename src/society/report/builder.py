@@ -70,10 +70,13 @@ class ReportBuilder:
                     self._client,
                     name=scenario.name,
                     headline=head,
+                    curve=curve,
                     segments=segments,
                     price=price,
                     objections=objections,
                     events=events,
+                    spread=spread,
+                    confidence=conf,
                     seed=self._seed,
                 )
             except LLMError as exc:
