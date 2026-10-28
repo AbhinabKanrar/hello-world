@@ -1,0 +1,697 @@
+{
+  "scenario": "MealMind launch",
+  "scenario_hash": "2c819392ba972f64",
+  "generated_at": "2026-10-27T20:49:54.753264Z",
+  "headline": {
+    "final_adoption": 0.32,
+    "peak_adoption": 0.32,
+    "peak_round": 2,
+    "trend": "rising",
+    "verdict": "promising"
+  },
+  "curve": [
+    {
+      "round": 0,
+      "adoption": 0.08,
+      "mean_interest": 2.68,
+      "sharers": 2,
+      "event": null
+    },
+    {
+      "round": 1,
+      "adoption": 0.16,
+      "mean_interest": 2.6,
+      "sharers": 11,
+      "event": null
+    },
+    {
+      "round": 2,
+      "adoption": 0.32,
+      "mean_interest": 3.4,
+      "sharers": 13,
+      "event": null
+    },
+    {
+      "round": 3,
+      "adoption": 0.2,
+      "mean_interest": 2.8,
+      "sharers": 14,
+      "event": "price_change: Price raised to $19/month"
+    },
+    {
+      "round": 4,
+      "adoption": 0.24,
+      "mean_interest": 3.16,
+      "sharers": 15,
+      "event": "news: A viral TikTok shows the app recommending the same four meals every week"
+    },
+    {
+      "round": 5,
+      "adoption": 0.32,
+      "mean_interest": 3.2,
+      "sharers": 18,
+      "event": null
+    }
+  ],
+  "segments": [
+    {
+      "dimension": "tech_comfort",
+      "bucket": "high",
+      "n": 15,
+      "adoption": 0.4667,
+      "mean_intent": 3.067,
+      "lift": 1.458,
+      "low_n": false
+    },
+    {
+      "dimension": "segment",
+      "bucket": "prospect",
+      "n": 19,
+      "adoption": 0.4211,
+      "mean_intent": 2.947,
+      "lift": 1.316,
+      "low_n": false
+    },
+    {
+      "dimension": "price_sensitivity",
+      "bucket": "low (1-2)",
+      "n": 12,
+      "adoption": 0.4167,
+      "mean_intent": 2.583,
+      "lift": 1.302,
+      "low_n": false
+    },
+    {
+      "dimension": "employment",
+      "bucket": "part-time",
+      "n": 11,
+      "adoption": 0.3636,
+      "mean_intent": 2.727,
+      "lift": 1.136,
+      "low_n": false
+    },
+    {
+      "dimension": "pain_points",
+      "bucket": "grocery bills keep rising",
+      "n": 11,
+      "adoption": 0.3636,
+      "mean_intent": 2.727,
+      "lift": 1.136,
+      "low_n": false
+    },
+    {
+      "dimension": "age",
+      "bucket": "42–45",
+      "n": 10,
+      "adoption": 0.3,
+      "mean_intent": 2.8,
+      "lift": 0.938,
+      "low_n": false
+    },
+    {
+      "dimension": "kids",
+      "bucket": "2–3",
+      "n": 17,
+      "adoption": 0.2941,
+      "mean_intent": 2.471,
+      "lift": 0.919,
+      "low_n": false
+    },
+    {
+      "dimension": "employment",
+      "bucket": "full-time",
+      "n": 17,
+      "adoption": 0.2941,
+      "mean_intent": 2.706,
+      "lift": 0.919,
+      "low_n": false
+    },
+    {
+      "dimension": "tech_comfort",
+      "bucket": "medium",
+      "n": 22,
+      "adoption": 0.2727,
+      "mean_intent": 2.5,
+      "lift": 0.852,
+      "low_n": false
+    },
+    {
+      "dimension": "decision_style",
+      "bucket": "researcher",
+      "n": 11,
+      "adoption": 0.1818,
+      "mean_intent": 2.273,
+      "lift": 0.568,
+      "low_n": false
+    },
+    {
+      "dimension": "age",
+      "bucket": "31–37",
+      "n": 6,
+      "adoption": 0.5,
+      "mean_intent": 3.167,
+      "lift": 1.562,
+      "low_n": true
+    },
+    {
+      "dimension": "household_income",
+      "bucket": "62628–73615",
+      "n": 6,
+      "adoption": 0.5,
+      "mean_intent": 3.167,
+      "lift": 1.562,
+      "low_n": true
+    },
+    {
+      "dimension": "decision_style",
+      "bucket": "impulsive",
+      "n": 4,
+      "adoption": 0.5,
+      "mean_intent": 3.25,
+      "lift": 1.562,
+      "low_n": true
+    },
+    {
+      "dimension": "decision_style",
+      "bucket": "loyalist",
+      "n": 2,
+      "adoption": 0.5,
+      "mean_intent": 3.0,
+      "lift": 1.562,
+      "low_n": true
+    },
+    {
+      "dimension": "kids",
+      "bucket": "1–2",
+      "n": 8,
+      "adoption": 0.375,
+      "mean_intent": 2.875,
+      "lift": 1.172,
+      "low_n": true
+    },
+    {
+      "dimension": "decision_style",
+      "bucket": "asks-friends",
+      "n": 8,
+      "adoption": 0.375,
+      "mean_intent": 2.625,
+      "lift": 1.172,
+      "low_n": true
+    },
+    {
+      "dimension": "pain_points",
+      "bucket": "kids are picky eaters",
+      "n": 9,
+      "adoption": 0.3333,
+      "mean_intent": 2.667,
+      "lift": 1.042,
+      "low_n": true
+    },
+    {
+      "dimension": "pain_points",
+      "bucket": "no time to cook",
+      "n": 9,
+      "adoption": 0.3333,
+      "mean_intent": 2.889,
+      "lift": 1.042,
+      "low_n": true
+    },
+    {
+      "dimension": "household_income",
+      "bucket": "73615–86229",
+      "n": 6,
+      "adoption": 0.3333,
+      "mean_intent": 2.833,
+      "lift": 1.042,
+      "low_n": true
+    },
+    {
+      "dimension": "price_sensitivity",
+      "bucket": "mid (3)",
+      "n": 6,
+      "adoption": 0.3333,
+      "mean_intent": 2.833,
+      "lift": 1.042,
+      "low_n": true
+    },
+    {
+      "dimension": "household_income",
+      "bucket": "100983–118051",
+      "n": 7,
+      "adoption": 0.2857,
+      "mean_intent": 2.286,
+      "lift": 0.893,
+      "low_n": true
+    },
+    {
+      "dimension": "pain_points",
+      "bucket": "decision fatigue about what to make",
+      "n": 8,
+      "adoption": 0.25,
+      "mean_intent": 2.125,
+      "lift": 0.781,
+      "low_n": true
+    },
+    {
+      "dimension": "age",
+      "bucket": "40–42",
+      "n": 4,
+      "adoption": 0.25,
+      "mean_intent": 1.75,
+      "lift": 0.781,
+      "low_n": true
+    },
+    {
+      "dimension": "employment",
+      "bucket": "self-employed",
+      "n": 9,
+      "adoption": 0.2222,
+      "mean_intent": 2.333,
+      "lift": 0.694,
+      "low_n": true
+    },
+    {
+      "dimension": "age",
+      "bucket": "37–40",
+      "n": 5,
+      "adoption": 0.2,
+      "mean_intent": 2.2,
+      "lift": 0.625,
+      "low_n": true
+    },
+    {
+      "dimension": "household_income",
+      "bucket": "86229–100983",
+      "n": 6,
+      "adoption": 0.1667,
+      "mean_intent": 2.167,
+      "lift": 0.521,
+      "low_n": true
+    },
+    {
+      "dimension": "price_sensitivity",
+      "bucket": "high (4-5)",
+      "n": 7,
+      "adoption": 0.1429,
+      "mean_intent": 2.429,
+      "lift": 0.446,
+      "low_n": true
+    },
+    {
+      "dimension": "segment",
+      "bucket": "non_buyer",
+      "n": 6,
+      "adoption": 0.0,
+      "mean_intent": 1.5,
+      "lift": 0.0,
+      "low_n": true
+    }
+  ],
+  "price": {
+    "points": [
+      {
+        "price": 1.0,
+        "share_willing": 0.96,
+        "revenue_index": 0.96
+      },
+      {
+        "price": 3.36,
+        "share_willing": 0.92,
+        "revenue_index": 3.0912
+      },
+      {
+        "price": 5.54,
+        "share_willing": 0.88,
+        "revenue_index": 4.8752
+      },
+      {
+        "price": 7.31,
+        "share_willing": 0.88,
+        "revenue_index": 6.4328
+      },
+      {
+        "price": 9.44,
+        "share_willing": 0.84,
+        "revenue_index": 7.9296
+      },
+      {
+        "price": 11.79,
+        "share_willing": 0.84,
+        "revenue_index": 9.9036
+      },
+      {
+        "price": 12.0,
+        "share_willing": 0.84,
+        "revenue_index": 10.08
+      },
+      {
+        "price": 12.9,
+        "share_willing": 0.76,
+        "revenue_index": 9.804
+      },
+      {
+        "price": 17.03,
+        "share_willing": 0.76,
+        "revenue_index": 12.9428
+      },
+      {
+        "price": 19.0,
+        "share_willing": 0.76,
+        "revenue_index": 14.44
+      },
+      {
+        "price": 19.26,
+        "share_willing": 0.6,
+        "revenue_index": 11.556
+      },
+      {
+        "price": 19.85,
+        "share_willing": 0.6,
+        "revenue_index": 11.91
+      },
+      {
+        "price": 20.0,
+        "share_willing": 0.6,
+        "revenue_index": 12.0
+      },
+      {
+        "price": 20.51,
+        "share_willing": 0.24,
+        "revenue_index": 4.9224
+      },
+      {
+        "price": 23.46,
+        "share_willing": 0.24,
+        "revenue_index": 5.6304
+      },
+      {
+        "price": 25.0,
+        "share_willing": 0.24,
+        "revenue_index": 6.0
+      },
+      {
+        "price": 25.26,
+        "share_willing": 0.12,
+        "revenue_index": 3.0312
+      },
+      {
+        "price": 28.21,
+        "share_willing": 0.12,
+        "revenue_index": 3.3852
+      },
+      {
+        "price": 30.0,
+        "share_willing": 0.12,
+        "revenue_index": 3.6
+      }
+    ],
+    "share_unwilling": 0.04,
+    "median_max_price": 20.0,
+    "list_price": 15.0,
+    "list_price_share": 0.76,
+    "revenue_max_price": 19.0,
+    "revenue_max_share": 0.76,
+    "suggested_tiers": [
+      19.0,
+      20.0,
+      21.25
+    ]
+  },
+  "objections": [
+    {
+      "label": "Potential repetition of meals / limited recipe variety",
+      "count": 6,
+      "share": 0.24,
+      "quotes": [
+        "Potential repetition of meals / limited recipe variety",
+        "Limited recipe variety – the app tends to repeat meals, which could get boring for picky eaters.",
+        "No verifiable price‑lock guarantee and risk of meal repetition"
+      ],
+      "top_segments": [
+        "asks-friends (3)",
+        "researcher (2)"
+      ]
+    },
+    {
+      "label": "price – $19/month is above what I’m comfortable paying, plus I’ve heard the app can repeat meals often",
+      "count": 4,
+      "share": 0.16,
+      "quotes": [
+        "price – $19/month is above what I’m comfortable paying, plus I’ve heard the app can repeat meals often",
+        "The app sometimes repeats the same meals, which could get boring for the kids.",
+        "The app sometimes repeats the same meals, which could get the kids bored."
+      ],
+      "top_segments": [
+        "researcher (3)",
+        "impulsive (1)"
+      ]
+    },
+    {
+      "label": "I want to see concrete savings on my grocery bill after the first month before committing long‑term.",
+      "count": 2,
+      "share": 0.08,
+      "quotes": [
+        "I want to see concrete savings on my grocery bill after the first month before committing long‑term.",
+        "No independent proof of the promised 15% grocery‑bill reduction and the recurring $19/month fee feel like a risk."
+      ],
+      "top_segments": [
+        "asks-friends (1)",
+        "researcher (1)"
+      ]
+    },
+    {
+      "label": "Occasional repetition of meal suggestions",
+      "count": 2,
+      "share": 0.08,
+      "quotes": [
+        "Occasional repetition of meal suggestions",
+        "occasionally repeats the same meals"
+      ],
+      "top_segments": [
+        "impulsive (1)",
+        "loyalist (1)"
+      ]
+    },
+    {
+      "label": "Will the app actually deliver the promised 20% grocery savings and keep meals varied enough for the kids?",
+      "count": 2,
+      "share": 0.08,
+      "quotes": [
+        "Will the app actually deliver the promised 20% grocery savings and keep meals varied enough for the kids?",
+        "Will the app really deliver 15‑minute, kid‑approved meals consistently, or will I still spend time tweaking recipes?"
+      ],
+      "top_segments": [
+        "asks-friends (1)",
+        "researcher (1)"
+      ]
+    },
+    {
+      "label": "high monthly cost without a trial or proven savings",
+      "count": 1,
+      "share": 0.04,
+      "quotes": [
+        "high monthly cost without a trial or proven savings"
+      ],
+      "top_segments": [
+        "asks-friends (1)"
+      ]
+    },
+    {
+      "label": "I need solid data that MealMind actually lowers my per‑serving cost and that the kid‑approved recipes will truly work for my picky eaters before I commit to $19/month.",
+      "count": 1,
+      "share": 0.04,
+      "quotes": [
+        "I need solid data that MealMind actually lowers my per‑serving cost and that the kid‑approved recipes will truly work for my picky eaters before I commit to $19/month."
+      ],
+      "top_segments": [
+        "researcher (1)"
+      ]
+    },
+    {
+      "label": "May repeat meals and monthly cost feels risky without proven results",
+      "count": 1,
+      "share": 0.04,
+      "quotes": [
+        "May repeat meals and monthly cost feels risky without proven results"
+      ],
+      "top_segments": [
+        "asks-friends (1)"
+      ]
+    },
+    {
+      "label": "Other",
+      "count": 6,
+      "share": 0.24,
+      "quotes": [],
+      "top_segments": []
+    }
+  ],
+  "spread": {
+    "organic_adopters": 2,
+    "influenced_adopters": 11,
+    "influenced_share": 0.8462,
+    "channel_touched_share": 0.9091,
+    "top_influencers": [
+      {
+        "index": 10,
+        "persona_id": "p_00010",
+        "name": "Lena Whitaker",
+        "influence": 0.9644,
+        "in_degree": 16,
+        "conversions_credited": 3.887
+      },
+      {
+        "index": 24,
+        "persona_id": "p_00024",
+        "name": "Alexis Ramirez",
+        "influence": 0.9401,
+        "in_degree": 14,
+        "conversions_credited": 1.709
+      },
+      {
+        "index": 3,
+        "persona_id": "p_00003",
+        "name": "Megan Alvarez",
+        "influence": 0.0589,
+        "in_degree": 9,
+        "conversions_credited": 1.099
+      },
+      {
+        "index": 7,
+        "persona_id": "p_00007",
+        "name": "Jordan Patel",
+        "influence": 0.3389,
+        "in_degree": 9,
+        "conversions_credited": 0.678
+      },
+      {
+        "index": 1,
+        "persona_id": "p_00001",
+        "name": "Megan Ortiz",
+        "influence": 0.2515,
+        "in_degree": 8,
+        "conversions_credited": 0.647
+      },
+      {
+        "index": 17,
+        "persona_id": "p_00017",
+        "name": "Jamal Rivera",
+        "influence": 0.3625,
+        "in_degree": 6,
+        "conversions_credited": 0.562
+      },
+      {
+        "index": 8,
+        "persona_id": "p_00008",
+        "name": "Jenna Morales",
+        "influence": 0.4197,
+        "in_degree": 11,
+        "conversions_credited": 0.487
+      },
+      {
+        "index": 23,
+        "persona_id": "p_00023",
+        "name": "Leah Martinez",
+        "influence": 0.0252,
+        "in_degree": 8,
+        "conversions_credited": 0.315
+      },
+      {
+        "index": 5,
+        "persona_id": "p_00005",
+        "name": "Laura Mitchell",
+        "influence": 0.7114,
+        "in_degree": 12,
+        "conversions_credited": 0.267
+      },
+      {
+        "index": 22,
+        "persona_id": "p_00022",
+        "name": "Jordan Alvarez",
+        "influence": 0.4645,
+        "in_degree": 8,
+        "conversions_credited": 0.249
+      }
+    ]
+  },
+  "events": [
+    {
+      "round": 3,
+      "kind": "price_change",
+      "detail": "Price raised to $19/month",
+      "delta_adoption": -0.12,
+      "delta_interest": -0.6,
+      "baseline_drift": 0.1067,
+      "notable": true
+    },
+    {
+      "round": 4,
+      "kind": "news",
+      "detail": "A viral TikTok shows the app recommending the same four meals every week",
+      "delta_adoption": 0.04,
+      "delta_interest": 0.36,
+      "baseline_drift": 0.1067,
+      "notable": true
+    }
+  ],
+  "voices": [
+    {
+      "persona_id": "p_00000",
+      "name": "Lena Morales",
+      "segment": "tech_comfort=high",
+      "purchase_intent": 5,
+      "text": "Trusted friends and online reviews confirm that MealMind delivers quick, kid‑approved dinner ideas and helps keep grocery costs steady, which aligns with my main pain point of rising grocery bills. The free two‑week trial and loyalty‑program integration address my need for a guaranteed cost reduction before committing. The only minor concern is that the app can repeat meals, but that’s a small trade‑off for the time savings and budget control I need. Given my high openness, low marketing skepticism, and impulsive decision style, I’m ready to try the trial and likely continue at the $19/month $"
+    },
+    {
+      "persona_id": "p_00001",
+      "name": "Megan Ortiz",
+      "segment": "segment=prospect",
+      "purchase_intent": 5,
+      "text": "Multiple trusted friends (Lena, Alexis, Megan L.) rave about the time‑saving and picky‑eater‑proof aspects, and they even mention a trial and loyalty sync, which aligns with my high openness and low price sensitivity. The only lingering concern is the reported repetition of recipes, but the overall benefit of reducing dinner stress outweighs that. I'm inclined to try the trial and likely continue the subscription."
+    },
+    {
+      "persona_id": "p_00003",
+      "name": "Megan Alvarez",
+      "segment": "price_sensitivity=low (1-2)",
+      "purchase_intent": 4,
+      "text": "All three trusted friends (Lena, Laura, Jordan) rave about the app, and I have very low price sensitivity and skepticism. MealMind directly tackles my decision‑fatigue, integrates with my grocery app, and the $19/month price is well within my comfort zone. The only real downside is that it can repeat meals, but that’s a minor trade‑off for the massive time savings and reduced mealtime battles."
+    },
+    {
+      "persona_id": "p_00009",
+      "name": "Jordan Blake",
+      "segment": "employment=full-time",
+      "purchase_intent": 1,
+      "text": "Multiple acquaintances have reported real time savings and steadier grocery bills, and the product offers a trial that aligns with my need for data‑driven validation. However, my high skepticism of marketing and the noted repetition of recipes keep me from fully committing until I see concrete evidence that the algorithm can sustain variety for Milo."
+    },
+    {
+      "persona_id": "p_00006",
+      "name": "Jordan Liu",
+      "segment": "tech_comfort=medium",
+      "purchase_intent": 1,
+      "text": "Trusted friends Lena and Alexis both rave about MealMind, saying it saves time, eases picky‑eater battles, and steadies the grocery bill. The trial and loyalty‑program sync address my cost‑concern, and my low price sensitivity means $19/month is fine. The main reservation is whether the recipe rotation stays fresh and the savings hit the promised 20%."
+    },
+    {
+      "persona_id": "p_00012",
+      "name": "Jenna Ortega",
+      "segment": "decision_style=researcher",
+      "purchase_intent": 1,
+      "text": "Jenna remains highly skeptical about MealMind. While acquaintances praise the app, they also note limited recipe variety, which reinforces her doubts. She has no current intention to spend on a solution for picky eating and requires a pediatric‑endorsed trial to consider it. Price is not a barrier, but without clear evidence and a compelling free trial, she stays uninterested and unlikely to recommend it."
+    }
+  ],
+  "confidence": {
+    "n": 25,
+    "rounds": 5,
+    "ci_level": 0.95,
+    "adoption_ci_low": 0.16,
+    "adoption_ci_high": 0.52,
+    "cache_hit_ratio": 0.0
+  },
+  "narrative": {
+    "summary": "The MealMind ... (truncated)... ... ... ... ... ... ... ... ... ... ... ... ... ... ... ... ... ... ... ...",
+    "recommendations": [
+      "...",
+      "",
+      ""
+    ]
+  }
+}
