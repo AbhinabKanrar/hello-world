@@ -208,7 +208,7 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 .society/
-out/
+out*/
 
 # PyPI configuration file
 .pypirc

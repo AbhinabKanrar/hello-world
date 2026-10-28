@@ -6,12 +6,12 @@ deterministic and a regeneration pass (nonce+1) yields a genuinely new bio.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from collections.abc import Sequence
 
-from society.llm.base import ChatClient
+from society.errors import LLMError
+from society.llm.base import ChatClient, JsonRequest
 from society.schemas import AudienceSpec, Persona, PersonaProfile
 
 _log = logging.getLogger(__name__)
@@ -64,20 +64,27 @@ class PersonaEnricher:
     async def enrich(
         self, personas: Sequence[Persona], *, only: Sequence[int] | None = None, nonce: int = 0
     ) -> list[Persona]:
-        targets = set(only) if only is not None else set(range(len(personas)))
+        targets = sorted(set(only)) if only is not None else list(range(len(personas)))
         out = list(personas)
 
-        async def run(i: int) -> None:
-            out[i] = out[i].with_profile(await self._profile(out[i], nonce))
-
-        # Client already bounds concurrency; TaskGroup gives structured cancellation on failure.
-        async with asyncio.TaskGroup() as tg:
-            for i in targets:
-                tg.create_task(run(i))
+        failed = 0
+        async for position, profile in self._client.complete_json_many(
+            (self._request(personas[i], nonce) for i in targets),
+            schema=PersonaProfile,
+            temperature=self._temperature,
+        ):
+            i = targets[position]
+            if isinstance(profile, LLMError):
+                failed += 1
+                _log.warning("enrichment_failed", extra={"persona_index": i, "nonce": nonce})
+                continue
+            out[i] = out[i].with_profile(profile)
+        if failed:
+            raise LLMError(f"{failed} persona enrichments failed; rerun to retry.")
         _log.info("enriched", extra={"count": len(targets), "nonce": nonce})
         return out
 
-    async def _profile(self, persona: Persona, nonce: int) -> PersonaProfile:
+    def _request(self, persona: Persona, nonce: int) -> JsonRequest:
         t = persona.traits
         user = _USER_TMPL.format(
             audience=self._spec.audience,
@@ -90,10 +97,8 @@ class PersonaEnricher:
             segment=t.segment.value,
             nonce=nonce,
         )
-        return await self._client.complete_json(
+        return JsonRequest(
             system=_SYSTEM,
             user=user,
-            schema=PersonaProfile,
-            temperature=self._temperature,
             seed=_persona_seed(self._seed, persona.index, nonce),
         )
