@@ -1,0 +1,52 @@
+# Netflix Basic with Ads: US launch terms on November 3, 2022.
+# This is a fixed-offer replay, NOT a reconstruction of actual customer history.
+#
+# Verified product facts:
+# - $6.99/month; 720p; one simultaneous stream.
+# - An average of 4-5 minutes of ads per hour; no offline downloads.
+# - Some titles unavailable because of licensing restrictions.
+# - Ad-free Basic: $9.99/month; ad-free Standard: $15.49/month.
+# Sources:
+# https://www.cnbc.com/2022/10/13/netflix-to-charge-6point99-a-month-for-ad-supported-tier-starting-nov-3.html
+# https://variety.com/2022/digital/news/netflix-with-ads-subscriber-signup-research-data-1235468044/
+#
+# Held-out comparison references (comments are not sent to the model):
+# - Hub reported that 24% of current Netflix subscribers expected to switch to
+#   the ad-supported option. This is stated intention, not observed switching.
+#   Our adult-only synthetic cohort is not a representative replica of its panel.
+# - Antenna estimated that 0.1% of existing US Netflix subscribers switched in
+#   November 2022. Netflix disputed Antenna's estimates; treat this as an external
+#   estimate, not verified ground truth.
+# - Antenna's often-quoted 9% was the ad tier's share of US Netflix sign-ups,
+#   NOT 9% of existing subscribers or US adults. Do not compare it to adoption here.
+#
+# How to interpret this replay:
+# - Adoption means simulated purchase intent, not a recorded subscription change.
+#   Compare its direction and objections with the references, not an exact match.
+# - Prefer round 0 for the closest available intention comparison. Later rounds
+#   add synthetic peer/channel influence, not observed November 2022 exposure.
+# - Five rounds are interaction steps, NOT five days, weeks, or months.
+# - No invented price changes/news events; keep launch terms constant.
+# - Hidden non-buyer traits are not calibrated to the reference percentages.
+# - Never tune the audience until adoption "hits" a historical percentage.
+name: "Netflix Basic with Ads - US November 2022 launch replay"
+product: >-
+  Netflix Basic with Ads, evaluated at its US launch on November 3, 2022.
+  Existing ad-free subscribers can switch to a $6.99/month plan with up to
+  720p HD video and one simultaneous stream. It averages 4-5 minutes of ads
+  per viewing hour, before and during content. Offline downloads are not
+  available, and some titles are unavailable because of licensing restrictions.
+  For comparison, ad-free Basic costs $9.99/month with 720p and one simultaneous
+  stream; ad-free Standard costs $15.49/month with 1080p and two simultaneous
+  streams. Staying on the current ad-free plan is an alternative. Evaluate only
+  these launch-era terms; do not assume later upgrades or actual market uptake.
+pitch: >-
+  Consider switching your household's current ad-free Netflix subscription
+  to Basic with Ads at $6.99/month. Balance the lower price against advertising,
+  the title restrictions, one simultaneous stream, and no offline downloads.
+price:
+  amount: 6.99
+  period: "month"
+  currency: "USD"
+rounds: 5
+events: []

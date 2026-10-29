@@ -1,0 +1,38 @@
+# Historical pilot: US Netflix subscribers considering a cheaper ad-supported plan.
+# Paired scenario: examples/netflix-ads/scenario.yaml
+#
+# Public reference population:
+# Hub's November 2022 "TV Advertising: Fact vs. Fiction" survey covered 3,001 US
+# consumers aged 14-74 watching at least one hour of TV per week. Its Netflix
+# subscriber subset is the closest available comparison, not a population census.
+# Source:
+# https://variety.com/2022/digital/news/netflix-with-ads-subscriber-signup-research-data-1235468044/
+#
+# Deliberate differences and assumptions:
+# - Adults only (18-74), not the survey's full 14-74 age range.
+# - No public subscriber age/income weights were available in the cited sources.
+#   Age is sampled uniformly, NOT from an observed Netflix age distribution.
+# - All personas already use an ad-free Netflix plan and participate in household
+#   subscription decisions; their actual plan mix is not known or imposed.
+# - No invented income, ad-tolerance, or willingness-to-switch weights.
+# - non_buyer_share and diversity are simulator assumptions, not measured rates.
+#   The non-buyer trait is NOT the complement of the observed switching intention.
+# - Attributes and hidden traits are sampled independently; enrichment adds
+#   synthetic biographies, not real subscriber records.
+# - 25 is a low-cost flow check (one persona = 4 percentage points). Increase size
+#   to 100+ and repeat with different seeds for a less noisy sensitivity exercise.
+audience: >-
+  US adults aged 18-74 who already use an ad-free Netflix subscription,
+  watch at least one hour of TV per week, and participate in household
+  streaming-subscription decisions. Historical context: November 2022.
+  Evaluate switching to Basic with Ads using only the launch-era offer,
+  without assuming later Netflix features, prices, or market outcomes.
+size: 25
+diversity: high
+non_buyer_share: 0.25
+attributes:
+  age: "18-74"
+  country: "United States"
+  current_service: "Netflix on an ad-free plan; exact plan unspecified"
+  subscription_role: "Participates in household subscription decisions"
+  viewing_eligibility: "Watches at least one hour of TV per week"
