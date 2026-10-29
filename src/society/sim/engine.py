@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import AsyncGenerator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -110,9 +110,7 @@ class SimulationEngine:
         stats: list[RoundStats] = []
 
         for rnd in range(start, s.rounds + 1):
-            scenario_text = prompts.scenario_block(
-                s, price_override=s.price_at(rnd).render()
-            )
+            scenario_text = prompts.scenario_block(s, price_override=s.price_at(rnd).render())
             hits_before = self._client.usage.cache_hits
             if rnd == 0:
                 inboxes = {i: Inbox() for i in range(n)}
@@ -184,7 +182,9 @@ class SimulationEngine:
                     self._cards[i], scenario_text, state.stance[i], inboxes[i], self._names
                 )
             )
-            return JsonRequest(system=prompts.SYSTEM, user=user, seed=_call_seed(self._seed, i, rnd))
+            return JsonRequest(
+                system=prompts.SYSTEM, user=user, seed=_call_seed(self._seed, i, rnd)
+            )
 
         rows: list[SimEvent] = []
         failed = 0
@@ -235,14 +235,15 @@ class SimulationEngine:
         return PopulationState(n), 0
 
 
-async def run_trial(
+async def run_trial(  # noqa: PLR0913
     client: ChatClient,
     *,
     personas: Sequence[Persona],
     audience: str,
     scenario: TrialScenarioSpec,
     seed: int,
-) -> AsyncIterator[TrialRecord]:
+    only: set[int] | None = None,
+) -> AsyncGenerator[TrialRecord, None]:
     """Yield one record per persona in index order; handled LLM failures become records."""
     if not personas:
         raise ValueError("trial requires at least one persona")
@@ -250,6 +251,11 @@ async def run_trial(
         raise ValueError("personas must have ordered, contiguous indices")
     if len({persona.id for persona in personas}) != len(personas):
         raise ValueError("persona IDs must be unique")
+    if only is not None and any(i < 0 or i >= len(personas) for i in only):
+        raise ValueError("trial retry indices are outside the population")
+    selected = [p for p in personas if only is None or p.index in only]
+    if not selected:
+        return
 
     schema = trial_answer_schema(len(scenario.options))
     requests = (
@@ -258,15 +264,24 @@ async def run_trial(
             user=prompts.trial_prompt(persona, audience, scenario),
             seed=_call_seed(seed, persona.index, 0),
         )
-        for persona in personas
+        for persona in selected
     )
     async for index, answer in client.complete_json_many(requests, schema=schema, temperature=0.7):
-        persona = personas[index]
+        persona = selected[index]
         if isinstance(answer, LLMError):
             # Do not log respondent content or provider response bodies.
-            _log.warning("trial_request_failed", extra={"persona_index": index})
+            _log.warning(
+                "trial_request_failed",
+                extra={"persona_index": persona.index, "failure_category": answer.category},
+            )
             yield TrialRecord(
-                index=index, persona_id=persona.id, status="technical_failure", answer=None
+                index=persona.index,
+                persona_id=persona.id,
+                status="technical_failure",
+                answer=None,
+                failure_category=answer.category,
             )
         else:
-            yield TrialRecord(index=index, persona_id=persona.id, status="answered", answer=answer)
+            yield TrialRecord(
+                index=persona.index, persona_id=persona.id, status="answered", answer=answer
+            )

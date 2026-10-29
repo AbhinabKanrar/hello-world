@@ -6,6 +6,7 @@ import asyncio
 import html
 import json
 import logging
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -14,22 +15,21 @@ import typer
 from society import logging as slog
 from society.config import Settings
 from society.errors import SocietyError
-from society.llm.factory import create_client
+from society.graph import GraphBuilder, GraphConfig, SocialGraph
 from society.llm.base import ChatClient, UsageMeter
+from society.llm.factory import create_client
 from society.llm.openrouter import OpenRouterClient
 from society.population import PopulationBuilder
-from society.schemas import AudienceSpec, Persona
-from society.storage import write_jsonl, write_jsonl_async, read_jsonl
-from society.graph import GraphBuilder, GraphConfig, SocialGraph
-from society.sim import ScenarioSpec, SimulationEngine
-from society.report import ReportBuilder
 from society.population.sampler import PopulationSampler
+from society.report import ReportBuilder
 from society.report.metrics import summarize_trial
 from society.report.render import trial_to_markdown
+from society.schemas import AudienceSpec, Persona
+from society.sim import ScenarioSpec, SimulationEngine
 from society.sim.engine import run_trial
 from society.sim.prompts import TRIAL_PROMPT_VERSION
 from society.sim.schemas import TrialRecord, TrialScenarioSpec
-
+from society.storage import read_jsonl, write_jsonl, write_jsonl_async
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="Cohuvo audience simulation CLI")
 
@@ -77,16 +77,12 @@ async def _close_with_usage(
         "accounting_scope": "observed_response_usage_this_invocation",
         "chat_input_tokens": chat.prompt_tokens,
         "chat_output_tokens": chat.completion_tokens,
-        "embedding_input_tokens": (
-            embeddings.prompt_tokens if embeddings is not None else None
-        ),
+        "embedding_input_tokens": (embeddings.prompt_tokens if embeddings is not None else None),
         "embedding_output_tokens": (
             embeddings.completion_tokens if embeddings is not None else None
         ),
         "total_input_tokens": (
-            chat.prompt_tokens + embeddings.prompt_tokens
-            if embeddings is not None
-            else None
+            chat.prompt_tokens + embeddings.prompt_tokens if embeddings is not None else None
         ),
         "total_output_tokens": (
             chat.completion_tokens + embeddings.completion_tokens
@@ -94,9 +90,7 @@ async def _close_with_usage(
             else None
         ),
         "chat_cache_hits": chat.cache_hits,
-        "embedding_cache_hits": (
-            embeddings.cache_hits if embeddings is not None else None
-        ),
+        "embedding_cache_hits": (embeddings.cache_hits if embeddings is not None else None),
         "embedding_meter_available": embeddings is not None,
     }
 
@@ -145,12 +139,7 @@ def build(
                 )
                 result = await builder.build(spec, seed=seed)
             finally:
-                await _close_with_usage(
-                    client,
-                    stage="population",
-                    settings=settings,
-                    output=out
-                )
+                await _close_with_usage(client, stage="population", settings=settings, output=out)
 
             n = write_jsonl(out, result.personas)
             manifest_path = out.with_suffix(".manifest.json")
@@ -245,10 +234,7 @@ def sim_run(
                 result = await engine.run()
             finally:
                 await _close_with_usage(
-                    client,
-                    stage="simulation",
-                    settings=settings,
-                    output=out_dir
+                    client, stage="simulation", settings=settings, output=out_dir
                 )
             m = result.manifest
             _log.info(
@@ -300,10 +286,7 @@ def report_build(
             finally:
                 if client:
                     await _close_with_usage(
-                        client,
-                        stage="report",
-                        settings=settings,
-                        output=out_dir
+                        client, stage="report", settings=settings, output=out_dir
                     )
             js = ReportBuilder.write(report, out_dir)
             _log.info(
@@ -321,19 +304,81 @@ def report_build(
         raise typer.Exit(code=1) from exc
 
 
+def _trial_recovery(
+    source: Path,
+    audience: AudienceSpec,
+    scenario: TrialScenarioSpec,
+    run_settings: dict[str, object],
+    people: list[Persona],
+) -> dict[int, TrialRecord]:
+    if (
+        AudienceSpec.model_validate_json(
+            (source / "audience.effective.json").read_text(encoding="utf-8")
+        )
+        != audience
+    ):
+        raise ValueError("Retry audience does not match the original run")
+    if (
+        TrialScenarioSpec.model_validate_json(
+            (source / "scenario.effective.json").read_text(encoding="utf-8")
+        )
+        != scenario
+    ):
+        raise ValueError("Retry scenario does not match the original run")
+    previous_settings = json.loads((source / "run.settings.json").read_text(encoding="utf-8"))
+    if previous_settings != run_settings:
+        raise ValueError("Retry settings, seed or prompt version differ from the original run")
+    if list(read_jsonl(source / "personas.jsonl", Persona)) != people:
+        raise ValueError("Retry personas do not match the original run")
+    records: dict[int, TrialRecord] = {}
+    for record in read_jsonl(source / "responses.jsonl", TrialRecord):
+        if (
+            record.index in records
+            or not 0 <= record.index < len(people)
+            or record.persona_id != people[record.index].id
+            or (record.answer is not None and record.answer.option_index >= len(scenario.options))
+        ):
+            raise ValueError("Retry source contains duplicate or invalid respondent records")
+        records[record.index] = record
+    if len(records) != len(people):
+        raise ValueError("Retry source must contain one record per persona")
+    if all(r.status == "answered" for r in records.values()):
+        raise ValueError("Retry source has no technical failures")
+    return records
+
+
 @survey_app.command("run")
-def survey_run(
+def survey_run(  # noqa: PLR0913, PLR0917
     audience: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
     scenario: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
     out_dir: Annotated[Path, typer.Option()] = Path("out/survey"),
     seed: Annotated[int, typer.Option(min=0)] = 42,
     log_level: Annotated[str, typer.Option()] = "INFO",
+    retry_from: Annotated[
+        Path | None,
+        typer.Option(exists=True, file_okay=False, help="Reuse answers from a failed survey run."),
+    ] = None,
 ) -> None:
     slog.configure(log_level)
     try:
         audience_spec = AudienceSpec.from_yaml(audience)
         scenario_spec = TrialScenarioSpec.from_yaml(scenario)
         settings = Settings()
+        run_settings: dict[str, object] = {
+            "seed": seed,
+            "prompt_version": TRIAL_PROMPT_VERSION,
+            "persona_mode": "attributes_only",
+            "aggregation": "unweighted",
+            "temperature": 0.7,
+            "settings": settings.model_dump(mode="json", exclude={"openrouter_api_key"}),
+        }
+        people = PopulationSampler(audience_spec, seed).sample()
+        previous = (
+            _trial_recovery(retry_from, audience_spec, scenario_spec, run_settings, people)
+            if retry_from is not None
+            else {}
+        )
+        pending = {i for i, record in previous.items() if record.status == "technical_failure"}
 
         # Fresh directories only: no accidental resume or mixed-run artifacts.
         out_dir.mkdir(parents=True, exist_ok=False)
@@ -345,16 +390,7 @@ def survey_run(
         )
         (out_dir / "run.settings.json").write_text(
             json.dumps(
-                {
-                    "seed": seed,
-                    "prompt_version": TRIAL_PROMPT_VERSION,
-                    "persona_mode": "attributes_only",
-                    "aggregation": "unweighted",
-                    "temperature": 0.7,
-                    "settings": settings.model_dump(
-                        mode="json", exclude={"openrouter_api_key"}
-                    ),
-                },
+                run_settings,
                 indent=2,
             ),
             encoding="utf-8",
@@ -362,23 +398,44 @@ def survey_run(
 
         # No LLM biographies, deduplication embeddings, or social graph.
         # Traits are generated by the existing sampler but never sent to the model.
-        people = PopulationSampler(audience_spec, seed).sample()
         write_jsonl(out_dir / "personas.jsonl", people)
         responses_path = out_dir / "responses.jsonl"
+        if retry_from is not None:
+            (out_dir / "recovery.source.json").write_text(
+                json.dumps({"source": str(retry_from.resolve()), "retry_count": len(pending)}),
+                encoding="utf-8",
+            )
 
         async def run() -> int:
             client = create_client(settings)
+
+            async def records() -> AsyncIterator[TrialRecord]:
+                retried = run_trial(
+                    client,
+                    personas=people,
+                    audience=audience_spec.audience,
+                    scenario=scenario_spec,
+                    seed=seed,
+                    only=pending if previous else None,
+                )
+                try:
+                    for persona in people:
+                        saved = previous.get(persona.index)
+                        if saved is not None and saved.status == "answered":
+                            yield saved
+                        else:
+                            record = await anext(retried)
+                            if record.index != persona.index:
+                                raise SocietyError("Survey response index mismatch")
+                            yield record
+                finally:
+                    await retried.aclose()
+
             try:
                 # Records stream to disk as batches complete; nothing is held per persona.
                 return await write_jsonl_async(
                     responses_path,
-                    run_trial(
-                        client,
-                        personas=people,
-                        audience=audience_spec.audience,
-                        scenario=scenario_spec,
-                        seed=seed,
-                    ),
+                    records(),
                 )
             finally:
                 await _close_with_usage(
@@ -399,12 +456,11 @@ def survey_run(
         if report.technical_failures:
             raise SocietyError(
                 f"{report.technical_failures} survey requests failed; "
-                "diagnostics saved, final report withheld. Restart in a fresh directory."
+                "diagnostics saved, final report withheld. Retry in a fresh output directory "
+                f"with --retry-from {out_dir} and the same inputs and settings."
             )
 
-        (out_dir / "report.json").write_text(
-            report.model_dump_json(indent=2), encoding="utf-8"
-        )
+        (out_dir / "report.json").write_text(report.model_dump_json(indent=2), encoding="utf-8")
         (out_dir / "SUCCESS").touch(exist_ok=False)
         _log.info("survey_done", extra={"out": str(out_dir), "valid": report.valid})
     except (SocietyError, ValueError, OSError) as exc:

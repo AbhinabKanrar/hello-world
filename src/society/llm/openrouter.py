@@ -211,17 +211,18 @@ def _final_content(completion: _Completion) -> str:
     if choice.error is not None:
         raise LLMError("OpenRouter returned a choice-level error.")
     if choice.message.refusal or choice.finish_reason == "content_filter":
-        raise LLMError("The provider declined the structured-output request.")
+        raise LLMError("The provider declined the structured-output request.", category="refusal")
     if choice.finish_reason == "length":
         raise LLMError(
             "OpenRouter output was truncated. Increase "
-            "SOCIETY_OPENROUTER_MAX_TOKENS or reduce reasoning effort."
+            "SOCIETY_OPENROUTER_MAX_TOKENS or reduce reasoning effort.",
+            category="truncated_output",
         )
     if choice.finish_reason != "stop":
         raise LLMError("OpenRouter did not return a normally completed response.")
     content = choice.message.content
     if not content or not content.strip():
-        raise LLMError("OpenRouter returned no final answer.")
+        raise LLMError("OpenRouter returned no final answer.", category="empty_output")
     return content
 
 
@@ -262,10 +263,7 @@ def _prepare_schema_node(value: JsonValue) -> JsonValue:
     for key in ("properties", "$defs", "definitions"):
         children = node.get(key)
         if isinstance(children, dict):
-            node[key] = {
-                name: _prepare_schema_node(child)
-                for name, child in children.items()
-            }
+            node[key] = {name: _prepare_schema_node(child) for name, child in children.items()}
 
     for key in ("items", "not", "if", "then", "else"):
         child = node.get(key)
@@ -313,8 +311,7 @@ class OpenRouterClient:
             raise LLMError("Set SOCIETY_OPENROUTER_API_KEY before using OpenRouter.")
         if not settings.chat_model.strip() or "/" not in settings.chat_model:
             raise LLMError(
-                "Set SOCIETY_CHAT_MODEL to an OpenRouter model ID, "
-                "for example openai/gpt-oss-120b."
+                "Set SOCIETY_CHAT_MODEL to an OpenRouter model ID, for example openai/gpt-oss-120b."
             )
 
         for name, providers in (
@@ -489,7 +486,9 @@ class OpenRouterClient:
                 async with asyncio.timeout(self._s.openrouter_call_timeout_s):
                     return await self._generate(self._payload(body), schema, key)
             except TimeoutError:
-                raise LLMError("OpenRouter call exceeded its total time budget.") from None
+                raise LLMError(
+                    "OpenRouter call exceeded its total time budget.", category="timeout"
+                ) from None
 
     async def _generate[T: BaseModel](
         self,
@@ -499,17 +498,40 @@ class OpenRouterClient:
     ) -> T:
         for attempt in range(self._s.max_validation_retries + 1):
             response = await self._post(payload)
-            content = _final_content(response)
+            try:
+                content = _final_content(response)
+            except LLMError as exc:
+                _log.warning(
+                    "openrouter_output_rejected",
+                    extra={
+                        "attempt": attempt,
+                        "response_id": response.id,
+                        "failure_category": exc.category,
+                    },
+                )
+                if (
+                    exc.category not in {"empty_output", "truncated_output"}
+                    or attempt >= self._s.max_validation_retries
+                ):
+                    raise
+                # Regenerate; incomplete content must not enter the correction conversation.
+                continue
 
             try:
                 result = schema.model_validate_json(content)
             except ValidationError as exc:
                 _log.warning(
                     "openrouter_schema_violation",
-                    extra={"attempt": attempt, "response_id": response.id},
+                    extra={
+                        "attempt": attempt,
+                        "response_id": response.id,
+                        "validation_types": sorted({e["type"] for e in exc.errors()}),
+                    },
                 )
                 if attempt >= self._s.max_validation_retries:
-                    raise LLMError("OpenRouter output failed schema validation.") from None
+                    raise LLMError(
+                        "OpenRouter output failed schema validation.", category="schema_validation"
+                    ) from None
 
                 errors = exc.errors(
                     include_input=False,
@@ -595,9 +617,7 @@ class OpenRouterClient:
                     f"Provider error {status}",
                     retry_after_s=retry_after,
                 )
-            raise LLMError(
-                f"OpenRouter returned an API error; response_id={completion.id!r}."
-            )
+            raise LLMError(f"OpenRouter returned an API error; response_id={completion.id!r}.")
 
         if usage is None:
             _log.warning(
@@ -618,9 +638,7 @@ class OpenRouterClient:
                 if attempt >= self._s.max_retries:
                     raise LLMError("OpenRouter transport retries exhausted.") from None
 
-                retry_after = (
-                    exc.retry_after_s if isinstance(exc, _RetryableError) else None
-                )
+                retry_after = exc.retry_after_s if isinstance(exc, _RetryableError) else None
                 limit = self._s.openrouter_max_retry_delay_s
                 if retry_after is not None and retry_after > limit:
                     raise LLMError(
@@ -780,16 +798,16 @@ class OpenRouterClient:
                     submitted.append((ids, await self._submit_batch(ids, bodies)))
                 except _BatchTooLargeError:
                     if len(ids) == 1:
-                        raise LLMError("A single batch request exceeds the API size limit.") from None
+                        raise LLMError(
+                            "A single batch request exceeds the API size limit."
+                        ) from None
                     mid = len(ids) // 2
                     self._batch_cap = max(1, min(self._batch_cap, mid))
                     _log.warning("openrouter_batch_split", extra={"new_cap": self._batch_cap})
                     groups.append((ids[:mid], bodies[:mid]))
                     groups.append((ids[mid:], bodies[mid:]))
 
-            finals = await asyncio.gather(
-                *(self._await_batch(batch.id) for _, batch in submitted)
-            )
+            finals = await asyncio.gather(*(self._await_batch(batch.id) for _, batch in submitted))
             fallback: list[int] = []
             for (ids, _), final in zip(submitted, finals, strict=True):
                 fallback.extend(self._collect(chunk, ids, final, schema))
@@ -852,7 +870,9 @@ class OpenRouterClient:
             yield b"]}"
 
         s = self._s
-        timeout = httpx.Timeout(s.request_timeout_s, connect=10.0, write=s.openrouter_call_timeout_s)
+        timeout = httpx.Timeout(
+            s.request_timeout_s, connect=10.0, write=s.openrouter_call_timeout_s
+        )
         delay = min(s.retry_base_delay_s, s.openrouter_max_retry_delay_s)
         for attempt in range(s.max_retries + 1):
             try:
@@ -1022,11 +1042,30 @@ class OpenRouterClient:
             offset = position - chunk.start
             response = result.response
             if result.error is not None or response is None or response.body is None:
+                _log.warning(
+                    "openrouter_batch_item_rejected",
+                    extra={
+                        "batch_id": batch.id,
+                        "persona_index": position,
+                        "failure_category": "missing_response_or_api_error",
+                    },
+                )
                 fallback.append(offset)
                 continue
             try:
                 parsed = schema.model_validate_json(_final_content(response.body))
-            except (LLMError, ValidationError):
+            except (LLMError, ValidationError) as exc:
+                _log.warning(
+                    "openrouter_batch_item_rejected",
+                    extra={
+                        "batch_id": batch.id,
+                        "persona_index": position,
+                        "response_id": response.body.id,
+                        "failure_category": (
+                            exc.category if isinstance(exc, LLMError) else "schema_validation"
+                        ),
+                    },
+                )
                 fallback.append(offset)
                 continue
             key = chunk.keys[offset]
@@ -1042,6 +1081,11 @@ class OpenRouterClient:
 
         # Results the API never returned are retried individually rather than dropped.
         fallback.extend(position - chunk.start for position in expected)
+        if expected:
+            _log.warning(
+                "openrouter_batch_missing_results",
+                extra={"batch_id": batch.id, "count": len(expected)},
+            )
         return fallback
 
     async def _delete_batch(self, batch_id: str) -> None:
@@ -1106,9 +1150,7 @@ class OpenRouterClient:
                 if response.status_code in _RETRYABLE_STATUS:
                     raise _RetryableError(
                         f"Embedding HTTP {response.status_code}",
-                        retry_after_s=_retry_after_seconds(
-                            response.headers.get("Retry-After")
-                        ),
+                        retry_after_s=_retry_after_seconds(response.headers.get("Retry-After")),
                     )
                 if not response.is_success:
                     raise LLMError(
@@ -1120,9 +1162,7 @@ class OpenRouterClient:
                     parsed = _EmbeddingResponse.model_validate_json(response.content)
                 except ValidationError:
                     # Do not automatically repeat potentially billable responses.
-                    raise LLMError(
-                        "OpenRouter returned an invalid embedding response."
-                    ) from None
+                    raise LLMError("OpenRouter returned an invalid embedding response.") from None
 
                 if parsed.usage is not None:
                     self.embedding_usage.add(parsed.usage.prompt_tokens, 0)
@@ -1135,24 +1175,16 @@ class OpenRouterClient:
                     extra={
                         "model": parsed.model,
                         "count": len(parsed.data),
-                        "prompt_tokens": (
-                            parsed.usage.prompt_tokens if parsed.usage else None
-                        ),
+                        "prompt_tokens": (parsed.usage.prompt_tokens if parsed.usage else None),
                     },
                 )
                 return parsed
 
             except (httpx.TransportError, _RetryableError) as exc:
                 if attempt >= self._s.max_retries:
-                    raise LLMError(
-                        "OpenRouter embedding retries exhausted."
-                    ) from None
+                    raise LLMError("OpenRouter embedding retries exhausted.") from None
 
-                retry_after = (
-                    exc.retry_after_s
-                    if isinstance(exc, _RetryableError)
-                    else None
-                )
+                retry_after = exc.retry_after_s if isinstance(exc, _RetryableError) else None
                 limit = self._s.openrouter_max_retry_delay_s
                 if retry_after is not None and retry_after > limit:
                     raise LLMError(
@@ -1210,9 +1242,7 @@ class OpenRouterClient:
                 async with asyncio.timeout(self._s.openrouter_call_timeout_s):
                     response = await self._embedding_request(payload)
             except TimeoutError:
-                raise LLMError(
-                    "OpenRouter embedding batch exceeded its time budget."
-                ) from None
+                raise LLMError("OpenRouter embedding batch exceeded its time budget.") from None
 
             matrix = self._embedding_matrix(response, len(texts))
             if self._cache is not None:

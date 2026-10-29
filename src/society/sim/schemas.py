@@ -88,10 +88,7 @@ class ScenarioSpec(StrictModel):
         latest_round = -1
 
         for event in self.events:
-            if (
-                event.kind is EventKind.PRICE_CHANGE
-                and latest_round < event.round <= rnd
-            ):
+            if event.kind is EventKind.PRICE_CHANGE and latest_round < event.round <= rnd:
                 if event.new_price is None:
                     raise ValueError("price_change is missing new_price")
                 amount = event.new_price
@@ -126,7 +123,9 @@ class Reaction(StrictModel):
 
     interest: int = Field(ge=1, le=5)
     purchase_intent: int = Field(ge=1, le=5)
-    max_price: float = Field(ge=0, allow_inf_nan=False, description="Most they'd pay per period; 0 = would not pay.")
+    max_price: float = Field(
+        ge=0, allow_inf_nan=False, description="Most they'd pay per period; 0 = would not pay."
+    )
     top_objection: str = Field(min_length=2, max_length=200)
     would_share: bool
     share_message: str = Field(
@@ -144,6 +143,7 @@ class Reaction(StrictModel):
         if not self.would_share and self.share_message:
             raise ValueError("would_share=false requires an empty share_message")
         return self
+
 
 # -------------------------------------------------------------- outputs
 
@@ -277,6 +277,7 @@ class TrialRecord(StrictModel):
     persona_id: str
     status: Literal["answered", "technical_failure"]
     answer: TrialAnswer | None
+    failure_category: str | None = None
 
     @model_validator(mode="after")
     def _validate_status(self) -> Self:

@@ -41,3 +41,29 @@ cohuvo survey run \
   --scenario examples/lam-meat/scenario.yaml \
   --seed 42 \
   --out-dir out/lab-grown-meat
+
+### Recovering a failed survey
+
+If a survey has technical failures, its diagnostic files are retained and no final
+report is published. Retry only failed personas into a **new** directory:
+
+```bash
+cohuvo survey run \
+  --audience examples/lam-meat/audience.yaml \
+  --scenario examples/lam-meat/scenario.yaml \
+  --seed 42 \
+  --retry-from out/lab-grown-meat2 \
+  --out-dir out/lab-grown-meat2-recovered
+```
+
+Keep the audience, scenario, seed, prompt version and settings identical to the
+original run. Recovery validates the saved population and records, reuses successful
+answers without API calls, and preserves original persona indices and request seeds.
+It does not require the original response cache. The source directory is never modified.
+Recovery currently requires a complete responses file containing one success or
+technical-failure record per persona; interrupted, partially written runs are not supported.
+
+Failed records now include a sanitized `failure_category`; older records without it
+remain readable. Batch rejection logs include IDs and failure categories, never raw
+respondent content. Empty or truncated outputs receive bounded regeneration retries
+within the existing call timeout; refusals and permanent errors are not regenerated.
