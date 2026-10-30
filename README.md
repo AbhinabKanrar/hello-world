@@ -67,3 +67,18 @@ Failed records now include a sanitized `failure_category`; older records without
 remain readable. Batch rejection logs include IDs and failure categories, never raw
 respondent content. Empty or truncated outputs receive bounded regeneration retries
 within the existing call timeout; refusals and permanent errors are not regenerated.
+
+### Survey answer quality
+
+`trial-prompt-v3` requests readable, option-consistent explanations without invented
+personal histories or demographic stereotypes. All four optional explanation fields
+allow JSON `null` but reject obvious corruption, placeholder-only strings and
+punctuation-dominated fragments. Rejected outputs use the existing bounded
+validation-retry/fallback path; unresolved items remain technical failures rather
+than being replaced with invented answers. Invalid cached outputs are revalidated
+by the OpenRouter client before reuse.
+
+These are basic text-integrity checks, not semantic fact checking or a guarantee of
+representative public opinion. Readable answers can still be inaccurate or biased.
+Run the new prompt in a fresh output directory; recovery across prompt versions is
+intentionally rejected to avoid mixing experiments.

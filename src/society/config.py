@@ -14,7 +14,8 @@ class Settings(BaseSettings):
 
     ollama_base_url: str = "http://127.0.0.1:11434"
     provider: Literal["ollama", "openrouter"] = "openrouter"
-    chat_model: str = "openai/gpt-oss-120b"
+    chat_model: str = "openai/gpt-oss-120b:batch"
+    # chat_model: str = "anthropic/claude-haiku-5.5:batch"
     embed_model: str = "qwen/qwen3-embedding-8b"
 
     openrouter_api_key: SecretStr | None = None
@@ -44,7 +45,7 @@ class Settings(BaseSettings):
     openrouter_batch_max_wait_s: float = Field(
         25 * 3600.0, gt=0, allow_inf_nan=False, description="Give up waiting on one batch."
     )
-    openrouter_batch_providers: tuple[str, ...] = ("deepinfra", "fireworks", "together", "parasail")
+    openrouter_batch_providers: tuple[str, ...] = ("anthropic", "deepinfra", "fireworks", "together", "parasail")
     openrouter_batch_max_tokens: int | None = Field(
         None,
         ge=256,

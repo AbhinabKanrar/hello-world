@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import hashlib
+import re
+import unicodedata
 from datetime import UTC, date, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Literal, Self
 
 import yaml
-from pydantic import Field, create_model, model_validator
+from pydantic import Field, create_model, field_validator, model_validator
 
 from society.errors import SpecError
 from society.schemas import StrictModel
@@ -251,12 +253,44 @@ class TrialScenarioSpec(StrictModel):
             raise SpecError(f"invalid trial scenario {path}: {exc}") from exc
 
 
+_TRIAL_WORD = re.compile(r"[^\W\d_]{2,}", re.UNICODE)
+_TRIAL_PLACEHOLDER = re.compile(
+    r"(?:none|null|n/?a|tbd|todo|final\s+\d+)[.!]?", re.IGNORECASE
+)
+
+
 class TrialAnswer(StrictModel):
     option_index: int = Field(ge=0, strict=True)
     reason: str | None = Field(min_length=1, max_length=600)
     concern: str | None = Field(min_length=1, max_length=400)
     information_needed: str | None = Field(min_length=1, max_length=400)
     change_condition: str | None = Field(min_length=1, max_length=400)
+
+    @field_validator("reason", "concern", "information_needed", "change_condition")
+    @classmethod
+    def _readable_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        # Ignore invisible format characters for detection, not for rewriting answers.
+        visible = "".join(c for c in value if unicodedata.category(c) != "Cf").strip()
+        if _TRIAL_PLACEHOLDER.fullmatch(visible):
+            raise ValueError("use JSON null for an absent explanation, not a placeholder string")
+        if any(unicodedata.category(c) == "Cc" and c not in "\n\r\t" for c in visible):
+            raise ValueError(
+                "explanation contains invalid control characters; return readable text"
+            )
+        letters = sum(c.isalpha() for c in visible)
+        symbols = sum(not c.isalnum() and not c.isspace() for c in visible)
+        if (
+            "\ufffd" in visible
+            or not _TRIAL_WORD.search(visible)
+            or (symbols >= 3 and symbols > letters)
+        ):
+            raise ValueError(
+                "write a readable explanation, not punctuation, corrupted text or placeholders; "
+                "use JSON null if no explanation is present"
+            )
+        return value
 
 
 def trial_answer_schema(option_count: int) -> type[TrialAnswer]:

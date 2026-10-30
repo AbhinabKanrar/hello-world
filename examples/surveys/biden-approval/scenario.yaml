@@ -1,0 +1,87 @@
+    # Sources:
+# - february-2023-poll.md, FOOD7 and FOOD8.
+# - biden-approval-survey.md, codebook pages 35–37.
+#
+# Scope: standalone FOOD7 approximation.
+# This does not execute the full questionnaire or FOOD8.
+# Published outcome percentages must remain outside respondent prompts.
+
+schema_version: trial-v1
+
+name: "FOOD7 — Likelihood of trying meat grown using animal cells"
+
+# Original fieldwork spanned February 16–20, 2023.
+# The schema accepts only one date.
+# February 16 is an explicit start-of-fieldwork convention,
+# not a claim that all original interviews occurred that day.
+as_of: "2023-02-16"
+
+stimulus: >-
+  New research and technologies have made it possible to produce meat grown
+  using cells that come from animals, without the need to raise or kill live
+  animals.
+
+question: >-
+  If this meat grown using cells from animals becomes available to purchase
+  in the United States, how likely are you to try it?
+
+options:
+  # FOOD7 original code 1; internal option_index 0.
+  - id: extremely_likely
+    label: "Extremely likely"
+    group: "Extremely/Very likely"
+    nonresponse: false
+
+  # FOOD7 original code 2; internal option_index 1.
+  - id: very_likely
+    label: "Very likely"
+    group: "Extremely/Very likely"
+    nonresponse: false
+
+  # FOOD7 original code 3; internal option_index 2.
+  # Do not relabel this as "undecided."
+  - id: somewhat_likely
+    label: "Somewhat likely"
+    group: "Somewhat likely"
+    nonresponse: false
+
+  # FOOD7 original code 4; internal option_index 3.
+  - id: not_very_likely
+    label: "Not very likely"
+    group: "Not very/Not at all likely"
+    nonresponse: false
+
+  # FOOD7 original code 5; internal option_index 4.
+  - id: not_at_all_likely
+    label: "Not at all likely"
+    group: "Not very/Not at all likely"
+    nonresponse: false
+
+  # FOOD7 original code 99; internal option_index 5.
+  #
+  # Approximation: the original codebook identifies this as volunteered
+  # nonresponse. The current implementation displays it as an option.
+  # It must not be included in an acceptance group or treated as a failure.
+  - id: nonresponse
+    label: "DON'T KNOW/SKIPPED ON WEB/REFUSED (VOL)"
+    group: null
+    nonresponse: true
+
+# Original FOOD8 specification, preserved here as documentation ONLY.
+# YAML comments are not executed or sent to the respondent model.
+#
+# Eligibility:
+#   FOOD7 = "Not very likely" OR "Not at all likely".
+#
+# Exact question:
+#   Which of the following are reasons you would not eat meat grown using
+#   cells from animals if it was available to you?
+#   Please select all that apply.
+#
+# Administration:
+#   RESPONSE OPTIONS RANDOMIZED.
+#   Multiple selections permitted.
+#
+# Substantive options:
+#   1. It just sounds weird
+#   2. I don't think it would be safe

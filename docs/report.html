@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FOOD7 · Survey report</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f6fa;
+      --card: #fff;
+      --text: #192335;
+      --muted: #647084;
+      --line: #e4e8f0;
+      --accent: #635bdb;
+      --human: #c6cbd6;
+      --warning: #9a5c08;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.6 system-ui, sans-serif;
+    }
+    main { max-width: 1160px; margin: auto; padding: 48px 24px; }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: clamp(26px, 4vw, 40px); line-height: 1.2; letter-spacing: -.035em; }
+    h2 { font-size: 19px; letter-spacing: -.02em; }
+    h3 { font-size: 15px; }
+    p + p { margin-top: 12px; }
+    small, .muted { color: var(--muted); }
+    code { font-size: .88em; overflow-wrap: anywhere; }
+    .eyebrow {
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      margin-bottom: 12px;
+    }
+    .subtitle { margin-top: 14px; max-width: 740px; color: var(--muted); }
+    .tags, .legend, .controls {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .tags { margin-top: 22px; }
+    .tag {
+      padding: 4px 10px;
+      border: 1px solid var(--line);
+      border-radius: 30px;
+      font-size: 12px;
+      background: white;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin: 30px 0 20px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 24px;
+    }
+    .metric strong { display: block; font-size: 32px; letter-spacing: -.04em; }
+    .metric span { color: var(--muted); font-size: 13px; }
+    .grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 20px; }
+    .stack { display: grid; gap: 20px; align-content: start; }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .section-head p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    select {
+      font: inherit;
+      font-size: 13px;
+      padding: 8px 10px;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: white;
+    }
+    label { cursor: pointer; font-size: 13px; }
+    input { accent-color: var(--accent); }
+    .legend { font-size: 12px; color: var(--muted); margin-bottom: 20px; }
+    .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; }
+    .chart-row { margin-bottom: 21px; }
+    .chart-row.nonresponse { border-top: 1px dashed var(--line); padding-top: 18px; }
+    .chart-label { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; margin-bottom: 7px; }
+    .chart-label strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .track { height: 10px; background: #f0f1f7; border-radius: 4px; overflow: hidden; }
+    .track + .track { margin-top: 5px; height: 6px; }
+    .bar { height: 100%; background: var(--accent); border-radius: 4px; }
+    .bar.human { background: var(--human); }
+    .axis { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .notice { padding: 16px; border-radius: 10px; background: #fff8eb; color: #79500f; font-size: 13px; }
+    .notice strong { display: block; margin-bottom: 4px; }
+    .group-bar { display: flex; height: 18px; border-radius: 6px; overflow: hidden; margin: 18px 0; background: #eef0f5; }
+    .group-line { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; margin: 10px 0; }
+    .group-line span:first-child { max-width: 75%; }
+    .big-number { font-size: 40px; font-weight: 750; letter-spacing: -.04em; margin: 12px 0 2px; }
+    .check { display: flex; gap: 10px; padding: 10px 0; font-size: 13px; border-bottom: 1px solid var(--line); }
+    .check:last-child { border-bottom: 0; }
+    .pass { color: #18764b; font-weight: 700; }
+    .unknown { color: var(--warning); font-weight: 700; }
+    .wide { margin-top: 20px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 12px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+    th { color: var(--muted); font-weight: 600; }
+    th:first-child, td:first-child { text-align: left; }
+    .gap { color: #a35213; font-weight: 650; }
+    details { border-bottom: 1px solid var(--line); padding: 14px 0; }
+    details:last-child { border: 0; }
+    summary { cursor: pointer; font-size: 14px; font-weight: 600; }
+    blockquote {
+      margin: 14px 0 8px;
+      padding: 4px 0 4px 16px;
+      border-left: 3px solid #dcd9fa;
+      color: #526074;
+      font-size: 14px;
+    }
+    .metadata { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 10px 16px; font-size: 13px; margin: 18px 0 0; }
+    dt { color: var(--muted); }
+    dd { margin: 0; overflow-wrap: anywhere; }
+    footer { padding-top: 24px; color: var(--muted); font-size: 12px; }
+    @media (max-width: 850px) { .grid { grid-template-columns: 1fr; } }
+    @media (max-width: 560px) {
+      main { padding: 28px 16px; }
+      .metrics { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .card { padding: 18px; }
+      .metadata { grid-template-columns: 1fr; gap: 3px; }
+      dd { margin-bottom: 10px; }
+    }
+    @media print {
+      body { background: white; }
+      main { max-width: none; padding: 0; }
+      .controls { display: none; }
+      .card { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">Cohuvo / Synthetic survey report</div>
+    <h1>Would people try cell-grown meat?</h1>
+    <p class="subtitle" id="scenario"></p>
+    <div class="tags">
+      <span class="tag">Synthetic respondents · not human polling</span>
+      <span class="tag">trial-report-v1</span>
+      <span class="tag" id="generated"></span>
+    </div>
+  </header>
+
+  <section class="metrics" aria-label="Sample overview" id="metrics"></section>
+
+  <div class="grid">
+    <div class="stack">
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>Response distribution</h2>
+            <p>Response options in instrument order. Bars use a 0–100% scale.</p>
+          </div>
+          <div class="controls">
+            <label>
+              Denominator
+              <select id="denominator">
+                <option value="completed">Completed responses</option>
+                <option value="valid">Valid responses</option>
+              </select>
+            </label>
+            <label><input id="benchmark" type="checkbox" checked> Human benchmark</label>
+          </div>
+        </div>
+        <div class="legend">
+          <span><i class="swatch" style="background:var(--accent)"></i>This run</span>
+          <span id="human-legend"><i class="swatch" style="background:var(--human)"></i>AP-NORC benchmark</span>
+        </div>
+        <div id="chart"></div>
+        <p class="axis" id="axis"></p>
+      </section>
+
+      <section class="card">
+        <h2>Configured groups</h2>
+        <p class="muted" style="font-size:13px;margin-top:4px">
+          Aggregates supplement the category chart; they do not replace it.
+        </p>
+        <div class="group-bar" id="group-bar" aria-hidden="true"></div>
+        <div id="groups"></div>
+        <p class="axis">Names are preserved exactly as configured.</p>
+      </section>
+    </div>
+
+    <aside class="stack">
+      <section class="card">
+        <div class="eyebrow">Interpretation</div>
+        <h2>Middle-heavy, not human-like</h2>
+        <p style="margin-top:12px">
+          <strong>96.5%</strong> selected “Somewhat likely” or “Not very likely.”
+          The endpoints are nearly empty.
+        </p>
+        <div class="big-number">1.0%</div>
+        <p class="muted" style="font-size:13px">
+          Tail mass: Extremely likely + Not at all likely.
+          Human benchmark: <strong>34.57%</strong> of all respondents.
+        </p>
+        <div class="notice" style="margin-top:18px">
+          <strong>Group totals hide category-level differences</strong>
+          The negative group is 56.5% versus 50.48% in the benchmark,
+          but almost all synthetic negative responses are “Not very likely.”
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Report integrity</h2>
+        <div id="checks" style="margin-top:12px"></div>
+        <p class="axis">
+          Numerical consistency is not population validity.
+          SUCCESS, settings, and raw responses cannot be verified from this JSON alone.
+        </p>
+      </section>
+    </aside>
+  </div>
+
+  <section class="card wide" id="comparison-section">
+    <div class="section-head">
+      <div>
+        <h2>Comparison with human data</h2>
+        <p id="comparison-note"></p>
+      </div>
+      <span class="tag">Benchmark supplied in the accompanying guide</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <caption class="muted" style="text-align:left;padding-bottom:10px">
+          Category-level comparison; differences are percentage points (pp).
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Response</th>
+            <th scope="col">Count</th>
+            <th scope="col">This run</th>
+            <th scope="col">Human</th>
+            <th scope="col">Δ (pp)</th>
+          </tr>
+        </thead>
+        <tbody id="comparison"></tbody>
+      </table>
+    </div>
+    <p class="axis" style="margin-top:16px">
+      As a rough independent-sampling reference, 1.96√[p(1−p)/n] is about
+      ±6.4 pp at p = 30% and n = 200. This is not a validated confidence
+      interval for synthetic respondents and does not capture model bias.
+      The human study’s margin of error does not transfer to this run.
+    </p>
+  </section>
+
+  <section class="card wide">
+    <div class="section-head">
+      <div>
+        <h2>Illustrative stated reasons</h2>
+        <p>First three non-null reasons per option, in respondent order—not representative themes.</p>
+      </div>
+    </div>
+    <div class="notice">
+      <strong>Quality signals, not explanations of human behaviour</strong>
+      Repeated taste-and-cost phrasing suggests templating. One “Not at all likely”
+      example describes the respondent in third person rather than answering in character.
+      Audit responses.jsonl before drawing conclusions about motivations.
+    </div>
+    <div id="reasons"></div>
+  </section>
+
+  <section class="card wide">
+    <h2>Instrument & provenance</h2>
+    <dl class="metadata" id="metadata"></dl>
+  </section>
+
+  <section class="card wide">
+    <h2>How to read this report</h2>
+    <div class="grid" style="margin-top:16px">
+      <div>
+        <h3>Choose the right denominator</h3>
+        <p class="muted" style="font-size:14px;margin-top:6px">
+          Completed responses include don't-know and refused selections.
+          Valid responses exclude them. Technical failures are not answers.
+          The two percentages coincide here because nonresponse is zero.
+        </p>
+      </div>
+      <div>
+        <h3>Separate pipeline quality from model behaviour</h3>
+        <p class="muted" style="font-size:14px;margin-top:6px">
+          These are independent, synthetic, forced-choice responses—not measured human demand.
+          A consistent report can still have an unrealistic distribution.
+          Compare another model using the same instrument, seed, and sample size before changing the prompt.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Source: supplied FOOD7 report and interpretation guide.
+    Benchmark values are external comparison data, not survey inputs.
+    No respondent-level records are included in this page.
+  </footer>
+</main>
+
+<script>
+  const report = {
+    schema_version: "trial-report-v1",
+    scenario: "FOOD7 — Likelihood of trying meat grown using animal cells",
+    scenario_hash: "e2b5860348394ee429b5071a49b0f81c279adf61f914744b7b254b10b51de7cd",
+    generated_at: "2026-10-29T20:45:09.250497Z",
+    requested: 200,
+    completed: 200,
+    valid: 200,
+    nonresponse: 0,
+    technical_failures: 0,
+    categories: [
+      {
+        id: "extremely_likely", label: "Extremely likely",
+        count: 0, nonresponse: false,
+        percent_completed: 0, percent_valid: 0,
+        reason_examples: []
+      },
+      {
+        id: "very_likely", label: "Very likely",
+        count: 5, nonresponse: false,
+        percent_completed: 2.5, percent_valid: 2.5,
+        reason_examples: [
+          "Cell-cultured meat without raising or killing animals fits my values, and I would be fairly eager to try it once it is on shelves.",
+          "I'm fairly open to trying new food technologies that reduce animal harm, and cell-grown meat without raising or killing animals appeals to me, so I would likely try it once it is on shelves.",
+          "I think I would be fairly eager to try cell-cultured meat since it avoids raising and killing animals, and my views lean strongly toward supporting this kind of food innovation."
+        ]
+      },
+      {
+        id: "somewhat_likely", label: "Somewhat likely",
+        count: 82, nonresponse: false,
+        percent_completed: 41, percent_valid: 41,
+        reason_examples: [
+          "I'm open to trying cell-grown meat if it's available, since it avoids raising and killing animals, but I'd want to see how it tastes and what it costs before I'd buy it.",
+          "I'm open to trying meat grown from animal cells if it's available, since it sounds like a reasonable alternative. I'd want to see how it tastes and what it costs before I'd commit to buying it.",
+          "I would be open to trying cell-grown meat if it were on sale, since it is a new product and I am curious about it, but I would not rush to buy it without knowing how it tastes and what it costs."
+        ]
+      },
+      {
+        id: "not_very_likely", label: "Not very likely",
+        count: 111, nonresponse: false,
+        percent_completed: 55.5, percent_valid: 55.5,
+        reason_examples: [
+          "Lab-grown meat is a new product I have no particular interest in trying, and I would need strong reassurance about safety and taste before I would consider buying it.",
+          "I would prefer to stick with conventionally produced meat I already know, and lab-grown meat seems unfamiliar and unnecessary to me.",
+          "I would rather stick with conventional meat I already know. I have some curiosity, but I doubt I would go out of my way to buy lab-grown meat once it is on shelves."
+        ]
+      },
+      {
+        id: "not_at_all_likely", label: "Not at all likely",
+        count: 2, nonresponse: false,
+        percent_completed: 1, percent_valid: 1,
+        reason_examples: [
+          "I would not want to eat meat grown in a lab from animal cells. Natural meat from farms is what I trust, and this sounds like an unnatural product I have no interest in trying.",
+          "Based on the respondent's very conservative views and general skepticism toward lab-grown food, trying cell-cultured meat seems unlikely to appeal to them if it becomes available."
+        ]
+      },
+      {
+        id: "nonresponse", label: "DON'T KNOW/SKIPPED ON WEB/REFUSED (VOL)",
+        count: 0, nonresponse: true,
+        percent_completed: 0, percent_valid: null,
+        reason_examples: []
+      }
+    ],
+    groups: [
+      {
+        label: "Extremely/Very likely", count: 5,
+        percent_completed: 2.5, percent_valid: 2.5
+      },
+      {
+        label: "Somewhat likely", count: 82,
+        percent_completed: 41, percent_valid: 41
+      },
+      {
+        label: "Not very/Not at all likely", count: 113,
+        percent_completed: 56.5, percent_valid: 56.5
+      }
+    ]
+  };
+
+  const human = {
+    extremely_likely: 6.75,
+    very_likely: 11.08,
+    somewhat_likely: 30.42,
+    not_very_likely: 22.66,
+    not_at_all_likely: 27.82,
+    nonresponse: 1.27
+  };
+
+  const colors = ["#635bdb", "#a49eea", "#34405d"];
+  const $ = id => document.getElementById(id);
+
+  function element(tag, text, className) {
+    const node = document.createElement(tag);
+    if (text !== undefined) node.textContent = text;
+    if (className) node.className = className;
+    return node;
+  }
+
+  function percent(value) {
+    return value == null ? "—" : `${value.toFixed(1)}%`;
+  }
+
+  function track(value, isHuman = false) {
+    const outer = element("div", undefined, "track");
+    const bar = element("div", undefined, isHuman ? "bar human" : "bar");
+    bar.style.width = `${value ?? 0}%`;
+    outer.append(bar);
+    outer.setAttribute("aria-hidden", "true");
+    return outer;
+  }
+
+  function renderDistribution() {
+    const mode = $("denominator").value;
+    const showHuman = $("benchmark").checked;
+    const key = `percent_${mode}`;
+    const denominator = report[mode];
+    const humanValidTotal = report.categories
+      .filter(category => !category.nonresponse)
+      .reduce((sum, category) => sum + human[category.id], 0);
+
+    $("chart").replaceChildren();
+    $("comparison").replaceChildren();
+    $("groups").replaceChildren();
+    $("group-bar").replaceChildren();
+    $("human-legend").hidden = !showHuman;
+    $("comparison-section").hidden = !showHuman;
+    $("axis").textContent = `% of ${denominator} ${mode} responses`;
+    $("comparison-note").textContent = mode === "completed"
+      ? "Published all-respondent weighted percentages from the supplied guide."
+      : "Human percentages renormalized from rounded published values, excluding nonresponse.";
+
+    for (const category of report.categories) {
+      const value = category[key];
+      const benchmark = mode === "valid"
+        ? (category.nonresponse ? null : human[category.id] / humanValidTotal * 100)
+        : human[category.id];
+
+      const row = element("div", undefined,
+        `chart-row${category.nonresponse ? " nonresponse" : ""}`);
+      const heading = element("div", undefined, "chart-label");
+      heading.append(
+        element("span", category.label),
+        element("strong", `${category.count} · ${percent(value)}`)
+      );
+      row.append(heading);
+
+      if (value !== null) row.append(track(value));
+      if (showHuman && benchmark !== null) {
+        row.append(track(benchmark, true));
+      }
+
+      if (showHuman) {
+        row.append(element("p", `Human benchmark: ${percent(benchmark)}`, "axis"));
+      }
+      if (value === null) {
+        row.append(element("p", "Excluded from the valid-response denominator.", "axis"));
+      }
+      $("chart").append(row);
+
+      const tr = document.createElement("tr");
+      const label = element("th", category.label);
+      label.scope = "row";
+      const delta = value === null || benchmark === null ? null : value - benchmark;
+      const deltaText = delta === null
+        ? "—"
+        : `${delta > 0 ? "+" : ""}${delta.toFixed(1)}`;
+      tr.append(
+        label,
+        element("td", String(category.count)),
+        element("td", percent(value)),
+        element("td", percent(benchmark)),
+        element("td", deltaText, delta !== null && Math.abs(delta) >= 10 ? "gap" : "")
+      );
+      $("comparison").append(tr);
+    }
+
+    report.groups.forEach((group, index) => {
+      const segment = element("div");
+      segment.style.width = `${group[key] ?? 0}%`;
+      segment.style.background = colors[index];
+      $("group-bar").append(segment);
+
+      const row = element("div", undefined, "group-line");
+      const label = element("span");
+      const dot = element("i", undefined, "swatch");
+      dot.style.background = colors[index];
+      label.append(dot, document.createTextNode(group.label));
+      row.append(label, element("strong", `${group.count} · ${percent(group[key])}`));
+      $("groups").append(row);
+    });
+  }
+
+  $("scenario").textContent = report.scenario;
+  $("generated").textContent = "Generated " + new Intl.DateTimeFormat("en", {
+    dateStyle: "medium", timeStyle: "short", timeZone: "UTC"
+  }).format(new Date(report.generated_at)) + " UTC";
+
+  [
+    ["Requested", report.requested, "Personas sampled"],
+    ["Completed", report.completed, "Includes nonresponse"],
+    ["Valid", report.valid, "Substantive answers"],
+    ["Technical failures", report.technical_failures, "Not survey answers"]
+  ].forEach(([label, value, note]) => {
+    const card = element("div", undefined, "card metric");
+    card.append(element("span", label), element("strong", String(value)), element("span", note));
+    $("metrics").append(card);
+  });
+
+  const categoryTotal = report.categories.reduce((sum, item) => sum + item.count, 0);
+  const validTotal = report.categories
+    .filter(item => !item.nonresponse)
+    .reduce((sum, item) => sum + item.count, 0);
+  const nonresponseTotal = report.categories
+    .filter(item => item.nonresponse)
+    .reduce((sum, item) => sum + item.count, 0);
+
+  [
+    [report.schema_version === "trial-report-v1", "Expected report schema"],
+    [report.requested === report.completed + report.technical_failures, "Requested = completed + failures"],
+    [report.completed === report.valid + report.nonresponse, "Completed = valid + nonresponse"],
+    [categoryTotal === report.completed, "Category counts sum to completed"],
+    [validTotal === report.valid, "Substantive counts sum to valid"],
+    [nonresponseTotal === report.nonresponse, "Nonresponse counts match total"],
+    [report.technical_failures === 0, "Zero technical failures"],
+    [null, "SUCCESS marker: not supplied"]
+  ].forEach(([passed, label]) => {
+    const row = element("div", undefined, "check");
+    row.append(
+      element("span", passed === null ? "?" : passed ? "✓" : "✕",
+        passed === true ? "pass" : "unknown"),
+      element("span", label)
+    );
+    $("checks").append(row);
+  });
+
+  report.categories.forEach(category => {
+    const detail = document.createElement("details");
+    detail.append(element("summary",
+      `${category.label} · ${category.reason_examples.length} examples`));
+    if (category.reason_examples.length === 0) {
+      detail.append(element("p", "No reason examples provided.", "axis"));
+    } else {
+      category.reason_examples.forEach(reason => {
+        detail.append(element("blockquote", reason));
+      });
+    }
+    $("reasons").append(detail);
+  });
+
+  [
+    ["Scenario", report.scenario],
+    ["Question / stimulus", "Verbatim text not supplied; scenario title is not a substitute."],
+    ["Scenario as_of", "Not supplied"],
+    ["Model", "anthropic/claude-haiku — identified in the guide, not in report.json"],
+    ["Prompt version", "Not supplied for this run; verify run.settings.json"],
+    ["Seed", "Not supplied; verify run.settings.json"],
+    ["Aggregation", "Unweighted, according to the guide"],
+    ["Temperature", "0.7, according to the guide"],
+    ["Nonresponse", `${report.nonresponse} of ${report.completed} completed responses`],
+    ["Generated at", report.generated_at],
+    ["Scenario SHA-256", report.scenario_hash],
+    ["Comparability", "Match scenario hash, model, prompt version, seed, and run settings."]
+  ].forEach(([key, value]) => {
+    $("metadata").append(element("dt", key), element("dd", value));
+  });
+
+  $("denominator").addEventListener("change", renderDistribution);
+  $("benchmark").addEventListener("change", renderDistribution);
+  renderDistribution();
+</script>
+</body>
+</html>

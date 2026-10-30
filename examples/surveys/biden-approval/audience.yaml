@@ -2,7 +2,7 @@
 # Public Use File Codebook, pages 43–50.
 #
 # Study fieldwork: February 16–20, 2023.
-# Original completed sample: 1,247 adults.
+# Original completed sample: 200 adults.
 #
 # This is an independent-marginal synthetic approximation.
 # It does not reconstruct original respondents or FINALWT.
@@ -17,7 +17,7 @@ audience: >-
   This audience includes meat eaters and people who do not eat meat;
   participation is not restricted to prospective buyers.
 
-size: 1247
+size: 200
 
 # Required/available settings in the existing audience schema.
 # Generated traits are not used by the attributes-only survey prompt.
