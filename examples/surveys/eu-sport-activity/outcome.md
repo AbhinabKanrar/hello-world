@@ -79,6 +79,16 @@ Venue, motivation, walking, and non-sport physical-activity results are separate
 
 #### Cohuvo outcome
 
+| Response | Eurobarometer | GPT-OSS | Haiku |
+|-----------|--------------:|--------:|------:|
+| Almost daily | 9% | 0% | 0% |
+| Several times a week | 38% | 85% | 81% |
+| Seldom | 14% | 15% | 18.5% |
+| Never | 39% | 0% | 0.5% |
+| Don’t know | 0%¹ | 0% | 0% |
+| At least several times weekly | 47% | 85% | 81% |
+
+
 Haiku outout
 
 {"ts":"2026-10-30T15:10:54.647+00:00","level":"INFO","logger":"society.cli","msg":"token_usage_summary","stage":"survey","output":"out/surveys/eu-sport-activity/haiku","provider":"openrouter","chat_model":"anthropic/claude-haiku-5.5:batch","embedding_model":"qwen/qwen3-embedding-8b","accounting_scope":"observed_response_usage_this_invocation","chat_input_tokens":281015,"chat_output_tokens":22791,"embedding_input_tokens":0,"embedding_output_tokens":0,"total_input_tokens":281015,"total_output_tokens":22791,"chat_cache_hits":0,"embedding_cache_hits":0,"embedding_meter_available":true}
