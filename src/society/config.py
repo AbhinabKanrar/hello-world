@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     # polled to a final status, and results are matched by custom_id.
     openrouter_batch_enabled: bool = True
     openrouter_batch_min_requests: int = Field(
-        10, ge=1, description="Fewer requests than this use the synchronous path."
+        50, ge=1, description="Fewer requests than this use the synchronous path."
     )
     openrouter_batch_max_requests: int = Field(
         4_096, ge=1, description="Per-batch request cap; lowered automatically on HTTP 413."

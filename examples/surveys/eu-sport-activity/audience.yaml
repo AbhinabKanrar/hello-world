@@ -1,13 +1,13 @@
-# Source: Special Eurobarometer on Sport and Physical Activity (3685)
-# Study fieldwork: April - May 2026
-# Target: EU citizens across Member States
-#
-# This is an independent-marginal synthetic approximation reflecting 
-# general EU population demographics (citizens aged 15 and over).
+# Source: Special Eurobarometer 574 report, methodology p. 6 and TS1-TS2.
+# Reported fieldwork: 9 April-4 May 2026; human sample: 26,508.
+# Independent-marginal approximation, not the original sample or survey weighting.
+# Only country weights below are verified from the supplied report.
 
 audience: >-
-  Citizens aged 15 and over in the European Union,
-  across all Member States, in April 2026.
+  People aged 15 and over who are nationals of an EU Member State and
+  reside in one of the 27 EU Member States, in April-May 2026.
+  In Cyprus, coverage is limited to the area controlled by the government
+  of the Republic of Cyprus.
 
 size: 200
 
@@ -16,6 +16,69 @@ diversity: high
 non_buyer_share: 0.0
 
 attributes:
+  country_of_residence:
+    kind: categorical
+    # TS2 population aged 15+ totals, not interview counts; normalized by the sampler.
+    options:
+      - "Belgium"
+      - "Bulgaria"
+      - "Czechia"
+      - "Denmark"
+      - "Germany"
+      - "Estonia"
+      - "Ireland"
+      - "Greece"
+      - "Spain"
+      - "France"
+      - "Croatia"
+      - "Italy"
+      - "Republic of Cyprus (government-controlled area)"
+      - "Latvia"
+      - "Lithuania"
+      - "Luxembourg"
+      - "Hungary"
+      - "Malta"
+      - "Netherlands"
+      - "Austria"
+      - "Poland"
+      - "Portugal"
+      - "Romania"
+      - "Slovenia"
+      - "Slovakia"
+      - "Finland"
+      - "Sweden"
+    weights:
+      - 9892796
+      - 5534456
+      - 9172797
+      - 5022981
+      - 71818299
+      - 1154359
+      - 4338938
+      - 9041201
+      - 42189318
+      - 56855864
+      - 3319752
+      - 51784963
+      - 818909
+      - 1579066
+      - 2467008
+      - 566303
+      - 8199448
+      - 493961
+      - 15228902
+      - 7842929
+      - 31082980
+      - 9275958
+      - 16034437
+      - 1811104
+      - 4557290
+      - 4771619
+      - 8748126
+    pick: 1
+
+  # Remaining weights are retained user assumptions, not verified survey marginals.
+  # They are independent of country and each other; joint profiles may be implausible.
   age_group:
     kind: categorical
     options:

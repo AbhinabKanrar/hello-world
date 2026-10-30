@@ -1,32 +1,34 @@
-# Provisional instrument: Special Eurobarometer on Sport and Physical Activity
+# Source: Special Eurobarometer 574 report, QB1R, pp. 11 and 14.
+# Report-category approximation; original interview options/recoding remain unverified.
 
 schema_version: trial-v1
 
-name: "Sport and physical activity frequency - April 2026 (approximation)"
+name: "QB1R sport frequency - April-May 2026 (report-category approximation)"
 
-# Start-of-fieldwork convention for the April-May 2026 study.
-as_of: "2026-04-01"
+# Reported overall start date; TS2 lists earlier starts for Italy and Sweden.
+as_of: "2026-04-09"
 
 stimulus: >-
-  Consider your typical lifestyle and habits regarding physical activity and sports
-  as of April 2026.
+  By "exercise" we mean any form of physical activity which you do in a sport
+  context or sport-related setting, such as swimming, training in a fitness
+  centre or a sport club, brisk walking or running (e.g. in the park).
 
 question: >-
   How often do you exercise or play sport?
 
 options:
-  - id: regularly
-    label: "Regularly (at least 5 times a week)"
-    group: "Regularly / With some regularity"
+  - id: almost_daily
+    label: "Almost daily"
+    group: "At least several times a week"
     nonresponse: false
 
-  - id: some_regularity
-    label: "With some regularity (1 to 4 times a week)"
-    group: "Regularly / With some regularity"
+  - id: several_times_a_week
+    label: "Several times a week"
+    group: "At least several times a week"
     nonresponse: false
 
   - id: seldom
-    label: "Seldom (1 to 3 times a month)"
+    label: "Seldom"
     group: "Seldom / Never"
     nonresponse: false
 
@@ -35,6 +37,7 @@ options:
     group: "Seldom / Never"
     nonresponse: false
 
+  # Displayed explicitly here; original nonresponse administration remains unverified.
   - id: nonresponse
     label: "Don't know"
     group: null

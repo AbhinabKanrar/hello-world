@@ -46,10 +46,10 @@ cohuvo report build \
 
 
 cohuvo survey run \
-  --audience examples/surveys/biden-approval/audience.yaml \
-  --scenario examples/surveys/biden-approval/scenario.yaml \
+  --audience examples/surveys/eu-sport-activity/audience.yaml \
+  --scenario examples/surveys/eu-sport-activity/scenario.yaml \
   --seed 42 \
-  --out-dir out/surveys/biden-approval/gpt1
+  --out-dir out/surveys/eu-sport-activity/gpt
 
 ### Recovering a failed survey
 
