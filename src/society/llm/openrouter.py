@@ -391,6 +391,7 @@ class OpenRouterClient:
         """Sync chat/completions payload: body plus routing preferences."""
         return {
             **body,
+            "model": self._s.chat_model.removesuffix(":batch"),
             "stream": False,
             "provider": {
                 "only": list(self._s.openrouter_providers),

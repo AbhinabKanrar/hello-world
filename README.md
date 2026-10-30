@@ -36,11 +36,20 @@ cohuvo report build \
   --seed 42 --out-dir out/netflix-ads/report
 
 
+  SOCIETY_CHAT_MODEL='anthropic/claude-haiku-5.5:batch' \
+  cohuvo survey run \
+  --audience examples/surveys/biden-approval/audience.yaml \
+  --scenario examples/surveys/biden-approval/scenario.yaml \
+  --seed 42 \
+  --retry-from out/surveys/biden-approval/gpt \
+  --out-dir out/surveys/biden-approval/gpt-recover
+
+
 cohuvo survey run \
   --audience examples/surveys/biden-approval/audience.yaml \
   --scenario examples/surveys/biden-approval/scenario.yaml \
   --seed 42 \
-  --out-dir out/surveys/biden-approval
+  --out-dir out/surveys/biden-approval/gpt1
 
 ### Recovering a failed survey
 

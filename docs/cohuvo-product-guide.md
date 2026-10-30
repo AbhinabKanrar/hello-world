@@ -201,7 +201,7 @@ This is the mode for **launch dynamics, pricing exploration and word-of-mouth hy
 
 With two additional fields that matter here:
 - `diversity` (`low` / `medium` / `high`): how widely behavioural traits are spread.
-- `non_buyer_share` (0–0.9): share of the population who, by construction, have no intention to spend on this problem — a realism anchor so adoption is not inflated.
+- `non_buyer_share` (0–0.9): share of the population who, by construction, have no intention to participate on this problem — a realism anchor so adoption is not inflated.
 
 #### 15.2 Scenario (`scenario.yaml`)
 
