@@ -2,20 +2,18 @@
 # Public Use File Codebook, pages 43–50.
 #
 # Study fieldwork: February 16–20, 2023.
-# Original completed sample: 200 adults.
+# Original completed sample: 1,247 adults; synthetic run size below: 200.
 #
 # This is an independent-marginal synthetic approximation.
 # It does not reconstruct original respondents or FINALWT.
 # Sampling weights below are published Weighted Percent values.
 # Small rounding discrepancies are normalized by the sampler.
 #
-# No FOOD7 or FOOD8 outcome information is included.
+# No approval results are included in the respondent inputs.
 
 audience: >-
   Adults aged 18 and over in the United States household population,
   across the 50 states and the District of Columbia, in February 2023.
-  This audience includes meat eaters and people who do not eat meat;
-  participation is not restricted to prospective buyers.
 
 size: 200
 

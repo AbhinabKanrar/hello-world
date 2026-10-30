@@ -37,10 +37,10 @@ cohuvo report build \
 
 
 cohuvo survey run \
-  --audience examples/lam-meat/audience.yaml \
-  --scenario examples/lam-meat/scenario.yaml \
+  --audience examples/surveys/biden-approval/audience.yaml \
+  --scenario examples/surveys/biden-approval/scenario.yaml \
   --seed 42 \
-  --out-dir out/lab-grown-meat
+  --out-dir out/surveys/biden-approval
 
 ### Recovering a failed survey
 
