@@ -6,6 +6,7 @@ import asyncio
 import html
 import json
 import logging
+import sqlite3
 from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Annotated, Literal
@@ -17,6 +18,7 @@ from society.config import Settings
 from society.errors import SocietyError
 from society.graph import GraphBuilder, GraphConfig, SocialGraph
 from society.llm.base import ChatClient, UsageMeter
+from society.llm.cache import ResponseCache
 from society.llm.factory import create_client
 from society.llm.openrouter import OpenRouterClient
 from society.population import PopulationBuilder
@@ -124,12 +126,23 @@ def build(
     seed: Annotated[int, typer.Option(help="Deterministic seed")] = 42,
     enrich: Annotated[bool, typer.Option(help="Generate bios via LLM")] = True,
     log_level: Annotated[str, typer.Option()] = "INFO",
+    retry_from: Annotated[
+        Path | None,
+        typer.Option(exists=True, file_okay=False, help="Population recovery directory."),
+    ] = None,
 ) -> None:
     slog.configure(log_level)
     settings = Settings()
 
     try:
         spec = AudienceSpec.from_yaml(audience)
+        manifest_path = out.with_suffix(".manifest.json")
+        recovery_dir = out.with_suffix(".recovery")
+        if out.exists() or manifest_path.exists() or recovery_dir.exists():
+            raise ValueError("Population output, manifest and recovery directory must be fresh")
+        settings_hash = ResponseCache.key(
+            settings=settings.model_dump(mode="json", exclude={"openrouter_api_key"})
+        )
 
         async def run() -> None:
             client = create_client(settings) if enrich else None
@@ -137,13 +150,19 @@ def build(
                 builder = PopulationBuilder(
                     client, chat_model=settings.chat_model, embed_model=settings.embed_model
                 )
-                result = await builder.build(spec, seed=seed)
+                result = await builder.build(
+                    spec,
+                    seed=seed,
+                    recovery_dir=recovery_dir,
+                    retry_from=retry_from,
+                    settings_hash=settings_hash,
+                )
             finally:
                 await _close_with_usage(client, stage="population", settings=settings, output=out)
 
             n = write_jsonl(out, result.personas)
-            manifest_path = out.with_suffix(".manifest.json")
             manifest_path.write_text(result.manifest.model_dump_json(indent=2))
+            (recovery_dir / "SUCCESS").touch(exist_ok=False)
 
             _log.info(
                 "done",
@@ -159,7 +178,7 @@ def build(
 
         asyncio.run(run())
 
-    except SocietyError as exc:
+    except (SocietyError, ValueError, OSError, sqlite3.Error) as exc:
         _log.error("failed", extra={"error": str(exc)})
         raise typer.Exit(code=1) from exc
 
@@ -211,6 +230,10 @@ def sim_run(
     out_dir: Annotated[Path, typer.Option()] = Path("out/sim"),
     seed: Annotated[int, typer.Option()] = 42,
     log_level: Annotated[str, typer.Option()] = "INFO",
+    retry_from: Annotated[
+        Path | None,
+        typer.Option(exists=True, file_okay=False, help="Failed simulation directory."),
+    ] = None,
 ) -> None:
     slog.configure(log_level)
     settings = Settings()
@@ -218,6 +241,9 @@ def sim_run(
         people = list(read_jsonl(personas, Persona))
         g = SocialGraph.load(graph)
         spec = ScenarioSpec.from_yaml(scenario)
+        settings_hash = ResponseCache.key(
+            settings=settings.model_dump(mode="json", exclude={"openrouter_api_key"})
+        )
 
         async def run() -> None:
             client = create_client(settings)
@@ -230,6 +256,8 @@ def sim_run(
                     seed=seed,
                     out_dir=out_dir,
                     chat_model=settings.chat_model,
+                    retry_from=retry_from,
+                    settings_hash=settings_hash,
                 )
                 result = await engine.run()
             finally:
@@ -250,7 +278,7 @@ def sim_run(
             )
 
         asyncio.run(run())
-    except (SocietyError, ValueError, OSError) as exc:
+    except (SocietyError, ValueError, OSError, sqlite3.Error) as exc:
         _log.error("failed", extra={"error": str(exc)})
         raise typer.Exit(code=1) from exc
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 
 from society.errors import LLMError
 from society.llm.base import ChatClient, JsonRequest
@@ -62,23 +62,46 @@ class PersonaEnricher:
         self._temperature = temperature
 
     async def enrich(
-        self, personas: Sequence[Persona], *, only: Sequence[int] | None = None, nonce: int = 0
+        self,
+        personas: Sequence[Persona],
+        *,
+        only: Sequence[int] | None = None,
+        nonce: int = 0,
+        saved: Mapping[int, PersonaProfile] | None = None,
+        on_profile: Callable[[int, PersonaProfile], None] | None = None,
     ) -> list[Persona]:
         targets = sorted(set(only)) if only is not None else list(range(len(personas)))
         out = list(personas)
+        recovered = saved or {}
+        target_set = set(targets)
+        if any(not 0 <= i < len(personas) for i in targets):
+            raise ValueError("Enrichment target is outside the population")
+        if any(i not in target_set for i in recovered):
+            raise ValueError("Saved profile is outside the current enrichment pass")
+        for i, recovered_profile in recovered.items():
+            out[i] = out[i].with_profile(recovered_profile)
+        pending = [i for i in targets if i not in recovered]
 
         failed = 0
+        received = 0
         async for position, profile in self._client.complete_json_many(
-            (self._request(personas[i], nonce) for i in targets),
+            (self._request(personas[i], nonce) for i in pending),
             schema=PersonaProfile,
             temperature=self._temperature,
         ):
-            i = targets[position]
+            if position != received or position >= len(pending):
+                raise ValueError("Enrichment responses must be ordered and unique")
+            received += 1
+            i = pending[position]
             if isinstance(profile, LLMError):
                 failed += 1
                 _log.warning("enrichment_failed", extra={"persona_index": i, "nonce": nonce})
                 continue
+            if on_profile is not None:
+                on_profile(i, profile)
             out[i] = out[i].with_profile(profile)
+        if received != len(pending):
+            raise LLMError("Enrichment did not account for every requested persona")
         if failed:
             raise LLMError(f"{failed} persona enrichments failed; rerun to retry.")
         _log.info("enriched", extra={"count": len(targets), "nonce": nonce})

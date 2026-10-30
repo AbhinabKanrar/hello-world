@@ -8,6 +8,8 @@ Round r>0: router computes the dirty set (new peer shares, channel posts, events
 
 from __future__ import annotations
 
+import hashlib
+import inspect
 import logging
 import uuid
 from collections.abc import AsyncGenerator, Sequence
@@ -15,11 +17,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+from pydantic import Field
 
 from society.errors import LLMError
 from society.graph.model import SocialGraph
 from society.llm.base import ChatClient, JsonRequest
-from society.schemas import Persona
+from society.llm.cache import ResponseCache
+from society.recovery import RecoveryJournal
+from society.schemas import Persona, StrictModel
 from society.sim import prompts
 from society.sim.inbox import Inbox, InboxRouter
 from society.sim.schemas import (
@@ -34,7 +39,7 @@ from society.sim.schemas import (
     trial_answer_schema,
 )
 from society.sim.state import PopulationState
-from society.storage import append_jsonl
+from society.storage import write_jsonl
 
 _log = logging.getLogger(__name__)
 _EVENTS = "events.jsonl"
@@ -52,6 +57,11 @@ class SimulationResult:
     events_path: Path
 
 
+class SimulationProgress(StrictModel):
+    checkpoint: Checkpoint | None = None
+    per_round: list[RoundStats] = Field(default_factory=list)
+
+
 class SimulationEngine:
     __slots__ = (
         "_cards",
@@ -61,8 +71,10 @@ class SimulationEngine:
         "_names",
         "_out",
         "_personas",
+        "_retry_from",
         "_scenario",
         "_seed",
+        "_settings_hash",
     )
 
     def __init__(
@@ -75,9 +87,15 @@ class SimulationEngine:
         seed: int,
         out_dir: Path,
         chat_model: str,
+        retry_from: Path | None = None,
+        settings_hash: str = "",
     ) -> None:
         if graph.n != len(personas):
             raise ValueError(f"graph has {graph.n} nodes but {len(personas)} personas given")
+        if not personas or any(p.index != i for i, p in enumerate(personas)):
+            raise ValueError("personas must be nonempty with ordered, contiguous indices")
+        if len({p.id for p in personas}) != len(personas):
+            raise ValueError("persona IDs must be unique")
         self._client = client
         self._personas = personas
         self._graph = graph
@@ -85,18 +103,57 @@ class SimulationEngine:
         self._seed = seed
         self._out = out_dir
         self._model = chat_model
+        self._retry_from = retry_from
+        self._settings_hash = settings_hash
         self._cards = [prompts.persona_card(p) for p in personas]
         self._names = [p.profile.name if p.profile else p.id for p in personas]
 
     # ------------------------------------------------------------------ API
     async def run(self) -> SimulationResult:
-        s, n = self._scenario, len(self._personas)
-        self._out.mkdir(parents=True, exist_ok=True)
-        events_path, ckpt_path = self._out / _EVENTS, self._out / _CKPT
+        digest = hashlib.sha256()
+        for persona in self._personas:
+            digest.update(persona.model_dump_json().encode())
+            digest.update(b"\n")
+        for array in (self._graph.indptr, self._graph.indices, self._graph.weights):
+            digest.update(str(array.dtype).encode())
+            digest.update(str(array.shape).encode())
+            digest.update(memoryview(np.ascontiguousarray(array)))
+        identity = ResponseCache.key(
+            stage="simulation-recovery-v1",
+            inputs=digest.hexdigest(),
+            channels=[channel.model_dump(mode="json") for channel in self._graph.channels],
+            memberships=self._graph.memberships,
+            scenario=self._scenario.model_dump(mode="json"),
+            seed=self._seed,
+            model=self._model,
+            settings_hash=self._settings_hash,
+            response_schema=Reaction.model_json_schema(),
+            levels=prompts._LEVEL,
+            prompts=(
+                prompts.SYSTEM,
+                inspect.getsource(prompts.persona_card),
+                inspect.getsource(prompts.scenario_block),
+                inspect.getsource(prompts.exposure_prompt),
+                inspect.getsource(prompts.update_prompt),
+                inspect.getsource(prompts._trust_word),
+            ),
+        )
+        with RecoveryJournal(self._out, identity=identity, source=self._retry_from) as journal:
+            return await self._run(journal)
 
-        state, start = self._resume(ckpt_path)
-        if start == 0:
-            events_path.unlink(missing_ok=True)
+    async def _run(self, journal: RecoveryJournal) -> SimulationResult:
+        s, n = self._scenario, len(self._personas)
+        events_path, ckpt_path = self._out / _EVENTS, self._out / _CKPT
+        progress = journal.state(SimulationProgress) or SimulationProgress()
+        checkpoint = progress.checkpoint
+        start = checkpoint.completed_round + 1 if checkpoint is not None else 0
+        if [stat.round for stat in progress.per_round] != list(range(start)):
+            raise ValueError("Recovery journal has incomplete or unordered round statistics")
+        state = (
+            PopulationState.from_checkpoint(checkpoint)
+            if checkpoint is not None
+            else PopulationState(n)
+        )
         resumed_from = start if start > 0 else None
 
         influence = np.fromiter((p.traits.influence for p in self._personas), np.float32, n)
@@ -107,14 +164,14 @@ class SimulationEngine:
             max_channel=s.max_channel_posts,
             broadcast_top_k=s.broadcast_top_k,
         )
-        stats: list[RoundStats] = []
+        stats = list(progress.per_round)
 
         for rnd in range(start, s.rounds + 1):
             scenario_text = prompts.scenario_block(s, price_override=s.price_at(rnd).render())
             hits_before = self._client.usage.cache_hits
             if rnd == 0:
                 inboxes = {i: Inbox() for i in range(n)}
-                rows = await self._query(inboxes, state, rnd, scenario_text, exposure=True)
+                rows = await self._query(inboxes, state, rnd, scenario_text, journal=journal)
                 decayed = np.empty(0, dtype=np.int64)
             else:
                 inboxes = router.route(
@@ -122,19 +179,15 @@ class SimulationEngine:
                     messages=state.share_message,
                     events=s.events_at(rnd),
                 )
-                rows = await self._query(inboxes, state, rnd, scenario_text, exposure=False)
+                rows = await self._query(inboxes, state, rnd, scenario_text, journal=journal)
                 queried = np.zeros(n, dtype=np.bool_)
                 queried[list(inboxes)] = True
                 decayed = state.decay(rnd, every=s.decay_every, exclude=queried)
-                rows += [state.row(int(i), rnd, "decay", self._personas[i].id) for i in decayed]
+                rows += [
+                    state.row(int(i), rnd, "decay", self._personas[int(i)].id) for i in decayed
+                ]
 
             rows.sort(key=lambda e: e.index)
-            append_jsonl(events_path, rows)
-            ckpt_path.write_text(
-                state.to_checkpoint(
-                    scenario_hash=s.content_hash(), seed=self._seed, completed_round=rnd
-                ).model_dump_json()
-            )
             rs = RoundStats(
                 round=rnd,
                 llm_calls=len(inboxes),
@@ -144,8 +197,27 @@ class SimulationEngine:
                 mean_interest=round(state.mean_interest(), 3),
             )
             stats.append(rs)
+            checkpoint = state.to_checkpoint(
+                scenario_hash=s.content_hash(), seed=self._seed, completed_round=rnd
+            )
+            journal.advance(
+                SimulationProgress(checkpoint=checkpoint, per_round=stats),
+                scope=f"events:{rnd}",
+                rows=((row.index, row) for row in rows),
+            )
+            ckpt_path.write_text(checkpoint.model_dump_json(), encoding="utf-8")
             _log.info("round_done", extra=rs.model_dump())
 
+        write_jsonl(
+            events_path,
+            (
+                row
+                for rnd in range(s.rounds + 1)
+                for _, row in journal.values(f"events:{rnd}", SimEvent)
+            ),
+        )
+        if checkpoint is not None:
+            ckpt_path.write_text(checkpoint.model_dump_json(), encoding="utf-8")
         manifest = SimManifest(
             run_id=uuid.uuid4().hex[:12],
             scenario=s.name,
@@ -160,6 +232,7 @@ class SimulationEngine:
             per_round=stats,
         )
         (self._out / "sim.manifest.json").write_text(manifest.model_dump_json(indent=2))
+        (self._out / "SUCCESS").touch(exist_ok=False)
         return SimulationResult(manifest=manifest, events_path=events_path)
 
     # --------------------------------------------------------------- rounds
@@ -170,9 +243,14 @@ class SimulationEngine:
         rnd: int,
         scenario_text: str,
         *,
-        exposure: bool,
+        journal: RecoveryJournal,
     ) -> list[SimEvent]:
+        exposure = rnd == 0
         indices = sorted(inboxes)
+        recovered = dict(journal.values(f"reactions:{rnd}", Reaction))
+        if not set(recovered).issubset(inboxes):
+            raise ValueError("Saved reaction is outside this round's routed population")
+        pending = [i for i in indices if i not in recovered]
 
         def request(i: int) -> JsonRequest:
             user = (
@@ -187,52 +265,45 @@ class SimulationEngine:
             )
 
         rows: list[SimEvent] = []
-        failed = 0
-        async for position, r in self._client.complete_json_many(
-            (request(i) for i in indices), schema=Reaction, temperature=0.7
-        ):
-            i = indices[position]
-            if isinstance(r, LLMError):
-                failed += 1
-                _log.warning("reaction_failed", extra={"round": rnd, "persona_index": i})
-                continue
+
+        def apply(i: int, reaction: Reaction) -> None:
             box = inboxes[i]
-            state.apply(i, r, rnd)
+            state.apply(i, reaction, rnd)
             rows.append(
                 state.row(
                     i,
                     rnd,
                     "exposure" if exposure else "influence",
                     self._personas[i].id,
-                    reasoning=r.reasoning,
+                    reasoning=reaction.reasoning,
                     peer=len(box.peers),
                     channel=len(box.channel),
                     events=len(box.events),
                 )
             )
+
+        for i, recovered_reaction in recovered.items():
+            apply(i, recovered_reaction)
+        failed = 0
+        received = 0
+        async for position, reaction in self._client.complete_json_many(
+            (request(i) for i in pending), schema=Reaction, temperature=0.7
+        ):
+            if position != received or position >= len(pending):
+                raise ValueError("Reaction responses must be ordered and unique")
+            received += 1
+            i = pending[position]
+            if isinstance(reaction, LLMError):
+                failed += 1
+                _log.warning("reaction_failed", extra={"round": rnd, "persona_index": i})
+                continue
+            journal.save(f"reactions:{rnd}", i, reaction)
+            apply(i, reaction)
+        if received != len(pending):
+            raise LLMError("Simulation did not account for every requested reaction")
         if failed:
-            # Successful reactions are cached, so a rerun from the checkpoint only pays for these.
             raise LLMError(f"{failed} persona reactions failed in round {rnd}; rerun to retry.")
         return rows
-
-    # --------------------------------------------------------------- resume
-    def _resume(self, ckpt_path: Path) -> tuple[PopulationState, int]:
-        n = len(self._personas)
-        if ckpt_path.exists():
-            try:
-                c = Checkpoint.model_validate_json(ckpt_path.read_text())
-            except ValueError:
-                c = None
-            if (
-                c
-                and c.scenario_hash == self._scenario.content_hash()
-                and c.seed == self._seed
-                and len(c.interest) == n
-            ):
-                _log.info("resuming", extra={"completed_round": c.completed_round})
-                return PopulationState.from_checkpoint(c), c.completed_round + 1
-            _log.warning("checkpoint_ignored", extra={"reason": "scenario/seed/size mismatch"})
-        return PopulationState(n), 0
 
 
 async def run_trial(  # noqa: PLR0913
