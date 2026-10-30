@@ -1,0 +1,54 @@
+# Source: Special Eurobarometer on Sport and Physical Activity (3685)
+# Study fieldwork: April - May 2026
+# Target: EU citizens across Member States
+#
+# This is an independent-marginal synthetic approximation reflecting 
+# general EU population demographics (citizens aged 15 and over).
+
+audience: >-
+  Citizens aged 15 and over in the European Union,
+  across all Member States, in April 2026.
+
+size: 200
+
+# Required/available settings in the existing audience schema.
+diversity: high
+non_buyer_share: 0.0
+
+attributes:
+  age_group:
+    kind: categorical
+    options:
+      - "15 to 24"
+      - "25 to 39"
+      - "40 to 54"
+      - "55+"
+    weights: [14.0, 23.0, 26.0, 37.0]
+    pick: 1
+
+  gender:
+    kind: categorical
+    options:
+      - "Male"
+      - "Female"
+    weights: [48.0, 52.0]
+    pick: 1
+
+  community_type:
+    kind: categorical
+    options:
+      - "Rural area or village"
+      - "Small or middle sized town"
+      - "Large town"
+    weights: [33.0, 39.0, 28.0]
+    pick: 1
+
+  education:
+    kind: categorical
+    options:
+      - "Finished at 15 years or younger"
+      - "Finished at 16 to 19 years"
+      - "Finished at 20 years or older"
+      - "Still studying"
+    weights: [15.0, 42.0, 33.0, 10.0]
+    pick: 1

@@ -1,0 +1,41 @@
+# Provisional instrument: Special Eurobarometer on Sport and Physical Activity
+
+schema_version: trial-v1
+
+name: "Sport and physical activity frequency - April 2026 (approximation)"
+
+# Start-of-fieldwork convention for the April-May 2026 study.
+as_of: "2026-04-01"
+
+stimulus: >-
+  Consider your typical lifestyle and habits regarding physical activity and sports
+  as of April 2026.
+
+question: >-
+  How often do you exercise or play sport?
+
+options:
+  - id: regularly
+    label: "Regularly (at least 5 times a week)"
+    group: "Regularly / With some regularity"
+    nonresponse: false
+
+  - id: some_regularity
+    label: "With some regularity (1 to 4 times a week)"
+    group: "Regularly / With some regularity"
+    nonresponse: false
+
+  - id: seldom
+    label: "Seldom (1 to 3 times a month)"
+    group: "Seldom / Never"
+    nonresponse: false
+
+  - id: never
+    label: "Never"
+    group: "Seldom / Never"
+    nonresponse: false
+
+  - id: nonresponse
+    label: "Don't know"
+    group: null
+    nonresponse: true
