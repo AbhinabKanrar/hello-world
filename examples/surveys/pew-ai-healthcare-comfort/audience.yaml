@@ -1,6 +1,7 @@
-# Source: Pew ATP wave 119 methodology; human fieldwork December 12-18, 2022.
-# Eligibility-only baseline: no verified demographic marginals or joint profiles.
-# All personas share these attributes; variation comes from model generation, not demographics.
+# Eligibility: Pew ATP wave 119; population approximation: Census Vintage 2022.
+# Counts: nc-est2022-agesex-res.csv, POPESTIMATE2022, SEX 1/2, adult ages only.
+# Joint age/sex categories preserve this relationship without changing the sampler.
+# Resident population estimates are not Pew's noninstitutionalized panel weights.
 audience: >-
   Non-institutionalized adults aged 18 and older living in the United States,
   including Alaska and Hawaii, in December 2022.
@@ -12,7 +13,24 @@ attributes:
     kind: categorical
     options: ["United States"]
     pick: 1
-  age_eligibility:
+  age_and_sex:
     kind: categorical
-    options: ["18 years or older"]
+    options:
+      - "Male; age 18 to 29"
+      - "Male; age 30 to 49"
+      - "Male; age 50 to 64"
+      - "Male; age 65 or older"
+      - "Female; age 18 to 29"
+      - "Female; age 30 to 49"
+      - "Female; age 50 to 64"
+      - "Female; age 65 or older"
+    weights:
+      - 27371398
+      - 43801998
+      - 31106544
+      - 25929344
+      - 26149897
+      - 42825601
+      - 31786440
+      - 31865508
     pick: 1

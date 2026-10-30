@@ -42,6 +42,14 @@ Review whether a model defaults to the balanced option, invents personal AI use,
 
 #### Cohuvo outcome
 
+| Response | Pew | GPT-OSS | Haiku |
+|----------|----:|--------:|------:|
+| More excited than concerned | 10% | 69% | 0% |
+| More concerned than excited | 52% | 8% | 100% |
+| Equally concerned and excited | 36% | 23% | 0% |
+| No answer | 2% | 0% | 0% |
+| Total variation distance¹ | — | 59 pp | 48 pp |
+
 Haiku
 
 {"ts":"2026-10-30T17:44:39.893+00:00","level":"INFO","logger":"society.cli","msg":"token_usage_summary","stage":"survey","output":"out/surveys/pew-ai-excitement-concern/haiku","provider":"openrouter","chat_model":"anthropic/claude-haiku-5.5:batch","embedding_model":"qwen/qwen3-embedding-8b","accounting_scope":"observed_response_usage_this_invocation","chat_input_tokens":266600,"chat_output_tokens":28525,"embedding_input_tokens":0,"embedding_output_tokens":0,"total_input_tokens":266600,"total_output_tokens":28525,"chat_cache_hits":0,"embedding_cache_hits":0,"embedding_meter_available":true}
