@@ -1,0 +1,27 @@
+# Source: Pew ATP wave 119 topline, AIHCCOMF, PDF page 1 (printed page 33).
+# Fixed order and displayed nonresponse approximate the original administration.
+schema_version: trial-v1
+name: "Pew AIHCCOMF - AI in personal health care, December 2022"
+as_of: "2022-12-12"
+stimulus: >-
+  Thinking about the use of artificial intelligence (AI) in health and medicine
+  to do things like diagnose disease and recommend treatments...
+question: >-
+  How would you feel if your health care provider relied on AI to do things like
+  diagnose disease and recommend treatments for your medical care?
+options:
+  - id: very_comfortable
+    label: "Very comfortable"
+    group: "Comfortable"
+  - id: somewhat_comfortable
+    label: "Somewhat comfortable"
+    group: "Comfortable"
+  - id: somewhat_uncomfortable
+    label: "Somewhat uncomfortable"
+    group: "Uncomfortable"
+  - id: very_uncomfortable
+    label: "Very uncomfortable"
+    group: "Uncomfortable"
+  - id: nonresponse
+    label: "Prefer not to answer"
+    nonresponse: true

@@ -1,0 +1,18 @@
+# Source: Pew ATP wave 99 methodology; November 1-7, 2021.
+# Eligibility-only baseline, not a recreation of the randomly assigned Form 1 sample.
+# No verified demographic marginals are available in this example; no weights are invented.
+audience: >-
+  Non-institutionalized adults aged 18 and older living in the United States,
+  including Alaska and Hawaii, in November 2021.
+size: 200
+diversity: high
+non_buyer_share: 0.0
+attributes:
+  country_of_residence:
+    kind: categorical
+    options: ["United States"]
+    pick: 1
+  age_eligibility:
+    kind: categorical
+    options: ["18 years or older"]
+    pick: 1

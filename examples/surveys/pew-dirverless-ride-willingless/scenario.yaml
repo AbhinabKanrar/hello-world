@@ -1,0 +1,29 @@
+# Source: Pew ATP wave 99 topline, PDF pp. 14-15 (printed pp. 147-148).
+# Preserves DCCARSVIG and DCARS3; omits intervening awareness/societal-impact questions.
+schema_version: trial-v1
+name: "Pew DCARS3 - Willingness to ride in a driverless vehicle, November 2021"
+as_of: "2021-11-01"
+stimulus: >-
+  Driverless passenger vehicles, sometimes called self-driving cars, are equipped
+  with software allowing them to operate with computer assistance. In the future,
+  driverless passenger vehicles are expected to be able to operate entirely on
+  their own without a human driver.
+question: >-
+  Would you personally want to ride in a driverless passenger vehicle,
+  if you had the opportunity?
+options:
+  - id: definitely_want
+    label: "Definitely want"
+    group: "Want to ride"
+  - id: probably_want
+    label: "Probably want"
+    group: "Want to ride"
+  - id: probably_not_want
+    label: "Probably NOT want"
+    group: "Do not want to ride"
+  - id: definitely_not_want
+    label: "Definitely NOT want"
+    group: "Do not want to ride"
+  - id: nonresponse
+    label: "Prefer not to answer"
+    nonresponse: true

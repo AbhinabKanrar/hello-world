@@ -1,0 +1,24 @@
+# Source: Pew ATP wave 132 science topline, PDF page 1, CNCEXC.
+# Source definition precedes AI_HEARD; this standalone version omits that question.
+schema_version: trial-v1
+name: "Pew CNCEXC - AI excitement and concern, July-August 2023"
+as_of: "2023-07-31"
+stimulus: >-
+  Artificial intelligence (AI) is designed to learn tasks that humans typically
+  do, for instance recognizing speech or pictures.
+question: >-
+  Overall, would you say the increased use of artificial intelligence (AI)
+  in daily life makes you feel...
+options:
+  - id: more_excited
+    label: "More excited than concerned"
+    group: "More excited than concerned"
+  - id: more_concerned
+    label: "More concerned than excited"
+    group: "More concerned than excited"
+  - id: equally_concerned_excited
+    label: "Equally concerned and excited"
+    group: "Equally concerned and excited"
+  - id: nonresponse
+    label: "Prefer not to answer"
+    nonresponse: true
