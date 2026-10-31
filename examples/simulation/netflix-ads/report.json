@@ -1,0 +1,553 @@
+{
+  "scenario": "Netflix Basic with Ads - US November 2022 launch replay",
+  "scenario_hash": "89c93ccede43a4ca",
+  "generated_at": "2026-10-29T03:42:33.195005Z",
+  "headline": {
+    "final_adoption": 0.12,
+    "peak_adoption": 0.12,
+    "peak_round": 5,
+    "trend": "rising",
+    "verdict": "weak"
+  },
+  "curve": [
+    {
+      "round": 0,
+      "adoption": 0.0,
+      "mean_interest": 2.32,
+      "sharers": 9,
+      "event": null
+    },
+    {
+      "round": 1,
+      "adoption": 0.0,
+      "mean_interest": 2.64,
+      "sharers": 11,
+      "event": null
+    },
+    {
+      "round": 2,
+      "adoption": 0.04,
+      "mean_interest": 2.24,
+      "sharers": 8,
+      "event": null
+    },
+    {
+      "round": 3,
+      "adoption": 0.04,
+      "mean_interest": 2.04,
+      "sharers": 10,
+      "event": null
+    },
+    {
+      "round": 4,
+      "adoption": 0.04,
+      "mean_interest": 2.16,
+      "sharers": 10,
+      "event": null
+    },
+    {
+      "round": 5,
+      "adoption": 0.12,
+      "mean_interest": 2.24,
+      "sharers": 6,
+      "event": null
+    }
+  ],
+  "segments": [
+    {
+      "dimension": "country",
+      "bucket": "United States",
+      "n": 25,
+      "adoption": 0.12,
+      "mean_intent": 1.6,
+      "lift": 1.0,
+      "low_n": false
+    },
+    {
+      "dimension": "current_service",
+      "bucket": "Netflix on an ad-free plan; exact plan unspecified",
+      "n": 25,
+      "adoption": 0.12,
+      "mean_intent": 1.6,
+      "lift": 1.0,
+      "low_n": false
+    },
+    {
+      "dimension": "subscription_role",
+      "bucket": "Participates in household subscription decisions",
+      "n": 25,
+      "adoption": 0.12,
+      "mean_intent": 1.6,
+      "lift": 1.0,
+      "low_n": false
+    },
+    {
+      "dimension": "viewing_eligibility",
+      "bucket": "Watches at least one hour of TV per week",
+      "n": 25,
+      "adoption": 0.12,
+      "mean_intent": 1.6,
+      "lift": 1.0,
+      "low_n": false
+    },
+    {
+      "dimension": "segment",
+      "bucket": "prospect",
+      "n": 19,
+      "adoption": 0.1053,
+      "mean_intent": 1.526,
+      "lift": 0.877,
+      "low_n": false
+    },
+    {
+      "dimension": "price_sensitivity",
+      "bucket": "low (1-2)",
+      "n": 10,
+      "adoption": 0.1,
+      "mean_intent": 1.4,
+      "lift": 0.833,
+      "low_n": false
+    },
+    {
+      "dimension": "decision_style",
+      "bucket": "researcher",
+      "n": 13,
+      "adoption": 0.0769,
+      "mean_intent": 1.462,
+      "lift": 0.641,
+      "low_n": false
+    },
+    {
+      "dimension": "decision_style",
+      "bucket": "loyalist",
+      "n": 2,
+      "adoption": 0.5,
+      "mean_intent": 3.0,
+      "lift": 4.167,
+      "low_n": true
+    },
+    {
+      "dimension": "price_sensitivity",
+      "bucket": "high (4-5)",
+      "n": 6,
+      "adoption": 0.3333,
+      "mean_intent": 2.333,
+      "lift": 2.778,
+      "low_n": true
+    },
+    {
+      "dimension": "decision_style",
+      "bucket": "asks-friends",
+      "n": 5,
+      "adoption": 0.2,
+      "mean_intent": 1.8,
+      "lift": 1.667,
+      "low_n": true
+    },
+    {
+      "dimension": "age",
+      "bucket": "22–43",
+      "n": 6,
+      "adoption": 0.1667,
+      "mean_intent": 1.667,
+      "lift": 1.389,
+      "low_n": true
+    },
+    {
+      "dimension": "age",
+      "bucket": "43–57",
+      "n": 6,
+      "adoption": 0.1667,
+      "mean_intent": 2.0,
+      "lift": 1.389,
+      "low_n": true
+    },
+    {
+      "dimension": "segment",
+      "bucket": "non_buyer",
+      "n": 6,
+      "adoption": 0.1667,
+      "mean_intent": 1.833,
+      "lift": 1.389,
+      "low_n": true
+    },
+    {
+      "dimension": "age",
+      "bucket": "64–73",
+      "n": 7,
+      "adoption": 0.1429,
+      "mean_intent": 1.571,
+      "lift": 1.19,
+      "low_n": true
+    },
+    {
+      "dimension": "price_sensitivity",
+      "bucket": "mid (3)",
+      "n": 9,
+      "adoption": 0.0,
+      "mean_intent": 1.333,
+      "lift": 0.0,
+      "low_n": true
+    },
+    {
+      "dimension": "age",
+      "bucket": "57–64",
+      "n": 6,
+      "adoption": 0.0,
+      "mean_intent": 1.167,
+      "lift": 0.0,
+      "low_n": true
+    },
+    {
+      "dimension": "decision_style",
+      "bucket": "impulsive",
+      "n": 5,
+      "adoption": 0.0,
+      "mean_intent": 1.2,
+      "lift": 0.0,
+      "low_n": true
+    }
+  ],
+  "price": {
+    "points": [
+      {
+        "price": 4.99,
+        "share_willing": 0.8,
+        "revenue_index": 3.992
+      },
+      {
+        "price": 6.02,
+        "share_willing": 0.8,
+        "revenue_index": 4.816
+      },
+      {
+        "price": 6.99,
+        "share_willing": 0.52,
+        "revenue_index": 3.6348
+      },
+      {
+        "price": 7.0,
+        "share_willing": 0.52,
+        "revenue_index": 3.64
+      },
+      {
+        "price": 7.23,
+        "share_willing": 0.44,
+        "revenue_index": 3.1812
+      },
+      {
+        "price": 7.74,
+        "share_willing": 0.44,
+        "revenue_index": 3.4056
+      },
+      {
+        "price": 8.5,
+        "share_willing": 0.4,
+        "revenue_index": 3.4
+      },
+      {
+        "price": 9.53,
+        "share_willing": 0.4,
+        "revenue_index": 3.812
+      },
+      {
+        "price": 9.99,
+        "share_willing": 0.12,
+        "revenue_index": 1.1988
+      },
+      {
+        "price": 10.87,
+        "share_willing": 0.12,
+        "revenue_index": 1.3044
+      },
+      {
+        "price": 11.9,
+        "share_willing": 0.12,
+        "revenue_index": 1.428
+      },
+      {
+        "price": 13.38,
+        "share_willing": 0.08,
+        "revenue_index": 1.0704
+      },
+      {
+        "price": 14.92,
+        "share_willing": 0.08,
+        "revenue_index": 1.1936
+      },
+      {
+        "price": 15.24,
+        "share_willing": 0.04,
+        "revenue_index": 0.6096
+      },
+      {
+        "price": 15.49,
+        "share_willing": 0.0,
+        "revenue_index": 0.0
+      }
+    ],
+    "share_unwilling": 0.16,
+    "median_max_price": 7.99,
+    "list_price": 6.99,
+    "list_price_share": 0.52,
+    "revenue_max_price": 6.02,
+    "revenue_max_share": 0.8,
+    "suggested_tiers": [
+      6.99,
+      7.99,
+      9.99
+    ]
+  },
+  "objections": [
+    {
+      "label": "Ads break the uninterrupted documentary experience I value, several titles I watch are unavailable, and the loss of offline downloads would hurt our occasional road trips.",
+      "count": 12,
+      "share": 0.48,
+      "quotes": [
+        "Ads break the uninterrupted documentary experience I value, several titles I watch are unavailable, and the loss of offline downloads would hurt our occasional road trips.",
+        "Ads every hour, missing documentary titles, and loss of offline downloads would disrupt family viewing.",
+        "Ads every hour, missing titles (especially documentaries), and loss of download capability would disrupt our viewing routine."
+      ],
+      "top_segments": [
+        "researcher (8)",
+        "impulsive (3)"
+      ]
+    },
+    {
+      "label": "ads and loss of offline downloads plus title gaps",
+      "count": 3,
+      "share": 0.12,
+      "quotes": [
+        "ads and loss of offline downloads plus title gaps",
+        "ads and title gaps, plus loss of offline downloads",
+        "Frequent ads, missing titles, and loss of offline downloads"
+      ],
+      "top_segments": [
+        "asks-friends (1)",
+        "impulsive (1)"
+      ]
+    },
+    {
+      "label": "Ads and missing documentary titles would disrupt our viewing experience",
+      "count": 2,
+      "share": 0.08,
+      "quotes": [
+        "Ads and missing documentary titles would disrupt our viewing experience",
+        "Ads and missing titles would ruin our documentary evenings and the lack of downloads would hurt our occasional trips."
+      ],
+      "top_segments": [
+        "asks-friends (1)",
+        "loyalist (1)"
+      ]
+    },
+    {
+      "label": "Ads, missing titles, and loss of download capability would disrupt family viewing",
+      "count": 2,
+      "share": 0.08,
+      "quotes": [
+        "Ads, missing titles, and loss of download capability would disrupt family viewing",
+        "Ads, missing titles, and loss of offline downloads would disrupt our viewing routine"
+      ],
+      "top_segments": [
+        "asks-friends (1)",
+        "impulsive (1)"
+      ]
+    },
+    {
+      "label": "Frequent ads (4‑5 min per hour) would interrupt my limited viewing sessions",
+      "count": 2,
+      "share": 0.08,
+      "quotes": [
+        "Frequent ads (4‑5 min per hour) would interrupt my limited viewing sessions",
+        "Frequent ads (4‑5 minutes per hour) and missing titles would disrupt my documentary evenings."
+      ],
+      "top_segments": [
+        "researcher (2)"
+      ]
+    },
+    {
+      "label": "Frequent ads, missing documentary titles, and only one simultaneous stream would disrupt my viewing and family sharing needs.",
+      "count": 2,
+      "share": 0.08,
+      "quotes": [
+        "Frequent ads, missing documentary titles, and only one simultaneous stream would disrupt my viewing and family sharing needs.",
+        "Frequent ads, missing titles, only one simultaneous stream, and no offline downloads would disrupt our viewing routine."
+      ],
+      "top_segments": [
+        "asks-friends (1)",
+        "researcher (1)"
+      ]
+    },
+    {
+      "label": "ads and title gaps",
+      "count": 1,
+      "share": 0.04,
+      "quotes": [
+        "ads and title gaps"
+      ],
+      "top_segments": [
+        "researcher (1)"
+      ]
+    },
+    {
+      "label": "Ads last 4‑5 minutes per hour (exceeds her 2‑minute tolerance) and the tier omits titles and offline downloads she values.",
+      "count": 1,
+      "share": 0.04,
+      "quotes": [
+        "Ads last 4‑5 minutes per hour (exceeds her 2‑minute tolerance) and the tier omits titles and offline downloads she values."
+      ],
+      "top_segments": [
+        "researcher (1)"
+      ]
+    }
+  ],
+  "spread": {
+    "organic_adopters": 0,
+    "influenced_adopters": 6,
+    "influenced_share": 1.0,
+    "channel_touched_share": 0.8333,
+    "top_influencers": [
+      {
+        "index": 21,
+        "persona_id": "p_00021",
+        "name": "Megan L. Caldwell",
+        "influence": 0.9458,
+        "in_degree": 18,
+        "conversions_credited": 1.002
+      },
+      {
+        "index": 5,
+        "persona_id": "p_00005",
+        "name": "Martha Delgado",
+        "influence": 0.4632,
+        "in_degree": 9,
+        "conversions_credited": 0.827
+      },
+      {
+        "index": 17,
+        "persona_id": "p_00017",
+        "name": "Ethan Morales",
+        "influence": 0.4402,
+        "in_degree": 9,
+        "conversions_credited": 0.613
+      },
+      {
+        "index": 7,
+        "persona_id": "p_00007",
+        "name": "Miriam Ortiz",
+        "influence": 0.3351,
+        "in_degree": 7,
+        "conversions_credited": 0.547
+      },
+      {
+        "index": 13,
+        "persona_id": "p_00013",
+        "name": "Donald M. Harper",
+        "influence": 0.2252,
+        "in_degree": 6,
+        "conversions_credited": 0.546
+      },
+      {
+        "index": 18,
+        "persona_id": "p_00018",
+        "name": "Marjorie L. Whitaker",
+        "influence": 0.465,
+        "in_degree": 9,
+        "conversions_credited": 0.33
+      },
+      {
+        "index": 2,
+        "persona_id": "p_00002",
+        "name": "Marjorie L. Bennett",
+        "influence": 0.0701,
+        "in_degree": 2,
+        "conversions_credited": 0.318
+      },
+      {
+        "index": 20,
+        "persona_id": "p_00020",
+        "name": "Martha Ellen Whitaker",
+        "influence": 0.0229,
+        "in_degree": 7,
+        "conversions_credited": 0.306
+      },
+      {
+        "index": 11,
+        "persona_id": "p_00011",
+        "name": "Margaret L. Sinclair",
+        "influence": 0.0854,
+        "in_degree": 4,
+        "conversions_credited": 0.292
+      },
+      {
+        "index": 14,
+        "persona_id": "p_00014",
+        "name": "Jordan L. Patel",
+        "influence": 0.0618,
+        "in_degree": 2,
+        "conversions_credited": 0.218
+      }
+    ]
+  },
+  "events": [],
+  "voices": [
+    {
+      "persona_id": "p_00004",
+      "name": "Mason Hale",
+      "segment": "country=United States",
+      "purchase_intent": 5,
+      "text": "All trusted friends and the online review I’ve read say the Basic with Ads tier cuts out titles we like, adds frequent ads, and removes download capability. The $6.99 price only saves about $3 compared to our current ad‑free plan, which is far less than the $5 discount I’d need to consider switching. Given my high price sensitivity, need for uninterrupted viewing, and the importance of the full catalog for my documentary nights, I remain opposed to moving to the ad‑supported tier."
+    },
+    {
+      "persona_id": "p_00005",
+      "name": "Martha Delgado",
+      "segment": "current_service=Netflix on an ad-free plan; exact plan unspecified",
+      "purchase_intent": 5,
+      "text": "All three trusted friends—Megan, Marjorie, and Margaret—strongly advised staying with the ad‑free tier, emphasizing that ads, title gaps, and no download option would disrupt our documentary and family movie nights. I value uninterrupted viewing and the ability to download for trips, and price isn’t a major concern for me. Given their consistent recommendations, I’m inclined to keep the current ad‑free Netflix subscription."
+    },
+    {
+      "persona_id": "p_00009",
+      "name": "Megan Torres",
+      "segment": "subscription_role=Participates in household subscription decisions",
+      "purchase_intent": 5,
+      "text": "Megan remains cautious about any plan that adds ads and removes the ability to download shows for her son’s road‑trip, especially after multiple trusted friends (Megan L. Caldwell, Ethan Morales, Martha Delgado, Donald M. Harper, Walter J. Bennett) warned that the ad‑supported tier would cut out favorite titles and insert frequent ad breaks. Even though the $6.99 price eases the monthly budget, her high price sensitivity is outweighed by the inconvenience of ads, fewer available titles, and the loss of offline viewing. As a loyalist who values a reliable, hassle‑free entertainment anchor for a"
+    },
+    {
+      "persona_id": "p_00000",
+      "name": "Eleanor J. Morales",
+      "segment": "segment=prospect",
+      "purchase_intent": 1,
+      "text": "Eleanor remains unconvinced after hearing multiple trusted friends (Megan, Miriam, Ethan, Walter) all stress the drawbacks of the ad‑supported tier: frequent ads, missing titles, and loss of download capability. Her personal criteria require at least a $5 monthly saving and no more than 2 minutes of ads per hour—both unmet by the $6.99 plan (ads are 4‑5 minutes per hour). She values uninterrupted, full‑catalog viewing for her documentary habit and is willing to keep the higher‑priced ad‑free plan, which aligns with her low price sensitivity and research‑driven decision style."
+    },
+    {
+      "persona_id": "p_00003",
+      "name": "Markus L. Henderson",
+      "segment": "price_sensitivity=low (1-2)",
+      "purchase_intent": 1,
+      "text": "All trusted friends and online reviews stress that the ad‑supported tier would introduce ads and remove titles we regularly watch, especially documentaries. As a loyalist who values uninterrupted viewing and already pays for an ad‑free plan, I see no compelling benefit in switching. Only a noticeable price hike on the current plan would make me reconsider, but none has occurred."
+    },
+    {
+      "persona_id": "p_00007",
+      "name": "Miriam Ortiz",
+      "segment": "decision_style=researcher",
+      "purchase_intent": 1,
+      "text": "Trusted friends (Megan, Walter, Ethan) all report that the ads and missing titles would ruin our viewing experience, especially for documentaries and trips. The $6.99 tier would save about 30% but at the cost of ads, fewer titles, and no download capability, which outweighs the savings for our family. I remain committed to the ad‑free plan and will continue to monitor for any promotional discounts."
+    }
+  ],
+  "confidence": {
+    "n": 25,
+    "rounds": 5,
+    "ci_level": 0.95,
+    "adoption_ci_low": 0.0,
+    "adoption_ci_high": 0.28,
+    "cache_hit_ratio": 0.0
+  },
+  "narrative": {
+    "summary": "Adoption rose from zero to 12 % by round 5, a rising trend but still judged weak. The service resonated most with U.S. households already on an ad-free Netflix plan, participants in subscription decisions, and viewers who watch at least one hour per week; the prospect segment showed 10.5 % adoption. The weakest group was the “researcher” decision-style segment (7.7 % adoption). The dominant blocker (48 % of objections) was the combination of ads breaking an uninterrupted experience, missing documentary titles, and loss of offline downloads; other objections cited ad frequency and title gaps. Pricing signals show 52 % willing to pay the $6.99 list price and 80 % willing at the $6.02 revenue-max price, while 16 % are unwilling at any price. Adoption spread entirely through influence—six influenced adopters, 83 % reached via a channel post, with top influencer conversion credits of 1.00, 0.83, 0.61. Confidence is wide (CI 0 %–28 %).",
+    "recommendations": [
+      "Deploy a targeted FAQ or short video that directly addresses the top objection—ads breaking an uninterrupted experience, missing titles, and loss of offline downloads—and distribute it through the influencer channel that already reached 83 % of influenced adopters.",
+      "Send a personalized email or in-app notification to the 13 respondents identified as the “researcher” decision-style segment, highlighting detailed ad-frequency information and offline-download alternatives to reduce friction for this weakest group.",
+      "Center all marketing assets on the $6.99 list price, noting that 52 % are willing at that price, and run a parallel test emphasizing the $6.02 revenue-max price where 80 % are willing, while monitoring the 16 % of respondents who are unwilling at any price."
+    ]
+  }
+}

@@ -13,10 +13,8 @@ from society.graph.model import SocialGraph
 from society.llm.base import ChatClient
 from society.report import metrics
 from society.report.frame import ADOPT_THRESHOLD, Frame
-from society.report.html import to_html
 from society.report.narrative import write_narrative
 from society.report.objections import objection_themes
-from society.report.render import to_markdown
 from society.report.schemas import Quote, Report, SegmentStat
 from society.report.spread import spread_stats
 from society.schemas import Persona
@@ -101,8 +99,7 @@ class ReportBuilder:
         )
 
     @staticmethod
-    def write(report: Report, out_dir: Path) -> tuple[Path, Path]:
-        # Render first so a rendering failure does not overwrite existing outputs.
+    def write(report: Report, out_dir: Path) -> Path:
         json_content = report.model_dump_json(indent=2)
 
         out_dir.mkdir(parents=True, exist_ok=True)

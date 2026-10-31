@@ -19,7 +19,7 @@ from pathlib import Path
 import numpy as np
 from pydantic import Field
 
-from society.errors import LLMError
+from society.errors import LLMError, aggregate_llm_error
 from society.graph.model import SocialGraph
 from society.llm.base import ChatClient, JsonRequest
 from society.llm.cache import ResponseCache
@@ -284,7 +284,7 @@ class SimulationEngine:
 
         for i, recovered_reaction in recovered.items():
             apply(i, recovered_reaction)
-        failed = 0
+        failures: list[LLMError] = []
         received = 0
         async for position, reaction in self._client.complete_json_many(
             (request(i) for i in pending), schema=Reaction, temperature=0.7
@@ -294,15 +294,21 @@ class SimulationEngine:
             received += 1
             i = pending[position]
             if isinstance(reaction, LLMError):
-                failed += 1
-                _log.warning("reaction_failed", extra={"round": rnd, "persona_index": i})
+                failures.append(reaction)
+                _log.warning(
+                    "reaction_failed",
+                    extra={"round": rnd, "persona_index": i, "failure_category": reaction.category},
+                )
                 continue
             journal.save(f"reactions:{rnd}", i, reaction)
             apply(i, reaction)
         if received != len(pending):
             raise LLMError("Simulation did not account for every requested reaction")
-        if failed:
-            raise LLMError(f"{failed} persona reactions failed in round {rnd}; rerun to retry.")
+        if failures:
+            raise aggregate_llm_error(
+                f"{len(failures)} persona reactions failed in round {rnd}; rerun to retry.",
+                failures,
+            )
         return rows
 
 

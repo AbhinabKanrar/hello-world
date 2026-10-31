@@ -95,6 +95,14 @@ Historical source familiarity can produce misleading agreement, and larger synth
 
 #### Cohuvo outcome
 
+| Response | Pew | GPT-OSS | Haiku |
+|----------|----:|--------:|------:|
+| Very comfortable | 7% | 0% | 0% |
+| Somewhat comfortable | 32% | 63% | 1% |
+| Somewhat uncomfortable | 37% | 37% | 99% |
+| Very uncomfortable | 23% | 0% | 0% |
+| No answer | 1% | 0% | 0% |
+
 haiku
 
 {"ts":"2026-10-30T18:29:27.498+00:00","level":"INFO","logger":"society.cli","msg":"token_usage_summary","stage":"survey","output":"out/surveys/pew-ai-healthcare-comfort/haiku","provider":"openrouter","chat_model":"anthropic/claude-haiku-5.5:batch","embedding_model":"qwen/qwen3-embedding-8b","accounting_scope":"observed_response_usage_this_invocation","chat_input_tokens":268555,"chat_output_tokens":26605,"embedding_input_tokens":0,"embedding_output_tokens":0,"total_input_tokens":268555,"total_output_tokens":26605,"chat_cache_hits":0,"embedding_cache_hits":0,"embedding_meter_available":true}
@@ -103,6 +111,6 @@ $0.0201
 
 gpt
 
-{"ts":"2026-10-30T20:48:05.097+00:00","level":"INFO","logger":"society.cli","msg":"token_usage_summary","stage":"survey","output":"out/surveys/pew-ai-healthcare-comfort/gpt","provider":"openrouter","chat_model":"openai/gpt-oss-120b:batch","embedding_model":"qwen/qwen3-embedding-8b","accounting_scope":"observed_response_usage_this_invocation","chat_input_tokens":116155,"chat_output_tokens":72214,"embedding_input_tokens":0,"embedding_output_tokens":0,"total_input_tokens":116155,"total_output_tokens":72214,"chat_cache_hits":0,"embedding_cache_hits":0,"embedding_meter_available":true}
+{"ts":"2026-10-31T00:08:24.359+00:00","level":"INFO","logger":"society.cli","msg":"token_usage_summary","stage":"survey","output":"out/survey/pew-ai-healthcare-comfort/gpt","provider":"openrouter","chat_model":"openai/gpt-oss-120b:batch","embedding_model":"qwen/qwen3-embedding-8b","accounting_scope":"observed_response_usage_this_invocation","chat_input_tokens":114955,"chat_output_tokens":73812,"embedding_input_tokens":0,"embedding_output_tokens":0,"total_input_tokens":114955,"total_output_tokens":73812,"chat_cache_hits":0,"embedding_cache_hits":0,"embedding_meter_available":true}
 
 $0.0133

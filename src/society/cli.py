@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import html
 import json
 import logging
 import sqlite3
@@ -25,13 +24,13 @@ from society.population import PopulationBuilder
 from society.population.sampler import PopulationSampler
 from society.report import ReportBuilder
 from society.report.metrics import summarize_trial
-from society.report.render import trial_to_markdown
 from society.schemas import AudienceSpec, Persona
 from society.sim import ScenarioSpec, SimulationEngine
 from society.sim.engine import run_trial
 from society.sim.prompts import TRIAL_PROMPT_VERSION
 from society.sim.schemas import TrialRecord, TrialScenarioSpec
 from society.storage import read_jsonl, write_jsonl, write_jsonl_async
+from society.study import StageFailureError, StudyRunner, build_context, default_stages, describe
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="Cohuvo audience simulation CLI")
 
@@ -40,12 +39,14 @@ graph_app = typer.Typer(no_args_is_help=True, help="Build the social graph")
 sim_app = typer.Typer(no_args_is_help=True, help="Run a scenario against a population")
 report_app = typer.Typer(no_args_is_help=True, help="Turn a simulation into a report")
 survey_app = typer.Typer(no_args_is_help=True, help="Run an independent trial survey")
+study_app = typer.Typer(no_args_is_help=True, help="Run all four simulation stages")
 
 app.add_typer(population_app, name="population")
 app.add_typer(graph_app, name="graph")
 app.add_typer(sim_app, name="sim")
 app.add_typer(report_app, name="report")
 app.add_typer(survey_app, name="survey")
+app.add_typer(study_app, name="study")
 
 _log = logging.getLogger("society.cli")
 
@@ -101,22 +102,6 @@ async def _close_with_usage(
             await client.aclose()
     finally:
         _log.info("token_usage_summary", extra=summary)
-
-
-async def _build(
-    spec: AudienceSpec, seed: int, enrich: bool, settings: Settings
-) -> tuple[int, Path]:
-    client = create_client(settings) if enrich else None
-    try:
-        builder = PopulationBuilder(
-            client, chat_model=settings.chat_model, embed_model=settings.embed_model
-        )
-        result = await builder.build(spec, seed=seed)
-    finally:
-        if client:
-            await client.aclose()
-
-    return 0, Path()  # placeholder replaced below
 
 
 @population_app.command("build")
@@ -494,6 +479,80 @@ def survey_run(  # noqa: PLR0913, PLR0917
     except (SocietyError, ValueError, OSError) as exc:
         _log.error("survey_failed", extra={"error": str(exc)})
         raise typer.Exit(code=1) from exc
+
+
+@study_app.command("run")
+def study_run(
+    audience: Annotated[Path, typer.Option(exists=True, dir_okay=False, help="audience.yaml")],
+    scenario: Annotated[Path, typer.Option(exists=True, dir_okay=False, help="scenario.yaml")],
+    out_dir: Annotated[Path, typer.Option(help="Study directory; rerun to resume")] = Path(
+        "out/study"
+    ),
+    seed: Annotated[int, typer.Option(min=0)] = 42,
+    enrich: Annotated[bool, typer.Option(help="Generate bios via LLM")] = True,
+    llm_report: Annotated[bool, typer.Option(help="Use LLM for objection themes/narrative")] = True,
+    narrative: Annotated[bool, typer.Option()] = True,
+    stage_retries: Annotated[
+        int, typer.Option(min=0, max=10, help="Recovery attempts per failed stage")
+    ] = 2,
+    mean_degree: Annotated[int, typer.Option(min=1, max=200)] = 8,
+    rewire_prob: Annotated[float, typer.Option(min=0.0, max=1.0)] = 0.1,
+    homophily_beta: Annotated[float, typer.Option(min=0.0)] = 4.0,
+    influence_alpha: Annotated[float, typer.Option(min=0.0)] = 2.0,
+    log_level: Annotated[str, typer.Option()] = "INFO",
+) -> None:
+    """Run population, graph, simulation and report; resumes a failed study in place."""
+    slog.configure(log_level)
+    settings = Settings()
+    try:
+        ctx = build_context(
+            audience=audience,
+            scenario=scenario,
+            seed=seed,
+            enrich=enrich,
+            llm_report=llm_report,
+            narrative=narrative,
+            graph_config=GraphConfig(
+                mean_degree=mean_degree,
+                rewire_prob=rewire_prob,
+                homophily_beta=homophily_beta,
+                influence_alpha=influence_alpha,
+            ),
+            settings=settings,
+        )
+        runner = StudyRunner(
+            out_dir, ctx, stages=default_stages(settings), max_retries=stage_retries
+        )
+        outcome = asyncio.run(runner.run())
+        _log.info(
+            "study_done",
+            extra={
+                "out": str(out_dir),
+                "report": str(outcome.report_dir),
+                "attempts": {name: rec.attempts for name, rec in outcome.stages.items()},
+                "chat_input_tokens": outcome.usage.chat_input_tokens,
+                "chat_output_tokens": outcome.usage.chat_output_tokens,
+                "embedding_input_tokens": outcome.usage.embedding_input_tokens,
+            },
+        )
+    except StageFailureError as exc:
+        _log.error(
+            "study_failed",
+            extra={"stage": exc.stage, "recoverable": exc.recoverable, "error": str(exc)},
+        )
+        typer.echo(describe(out_dir), err=True)
+        raise typer.Exit(code=1) from exc
+    except (SocietyError, ValueError, OSError, sqlite3.Error) as exc:
+        _log.error("study_failed", extra={"error": str(exc)})
+        raise typer.Exit(code=1) from exc
+
+
+@study_app.command("status")
+def study_status(
+    out_dir: Annotated[Path, typer.Argument(exists=True, file_okay=False)],
+) -> None:
+    """Print the stage journal for a study directory."""
+    typer.echo(describe(out_dir))
 
 
 if __name__ == "__main__":

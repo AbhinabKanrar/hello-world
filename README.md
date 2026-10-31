@@ -6,7 +6,7 @@ are exploratory model-generated responses, not measured human demand.
 | Workflow | Purpose | Execution |
 |---|---|---|
 | Independent survey | One question, configured response options, counts and stated reasons | `survey run` |
-| Social simulation | Purchase intent, pricing and reactions across social-influence rounds | Population -> graph -> simulation -> report |
+| Social simulation | Purchase intent, pricing and reactions across social-influence rounds | `study run`, or population -> graph -> simulation -> report individually |
 
 ## Setup
 
@@ -28,10 +28,10 @@ No population, graph or simulation commands are required first.
 
 ```bash
 cohuvo survey run \
-  --audience examples/surveys/lab-meat/audience.yaml \
-  --scenario examples/surveys/lab-meat/scenario.yaml \
+  --audience examples/surveys/pew-ai-healthcare-comfort/audience.yaml \
+  --scenario examples/surveys/pew-ai-healthcare-comfort/scenario.yaml \
   --seed 42 \
-  --out-dir out/survey
+  --out-dir out/surveys/pew-ai-healthcare-comfort/gpt
 ```
 
 To specify a model, use this command
@@ -39,10 +39,10 @@ To specify a model, use this command
 ```bash
 SOCIETY_CHAT_MODEL='anthropic/claude-haiku-5.5:batch' \
 cohuvo survey run \
-  --audience examples/surveys/lab-meat/audience.yaml \
-  --scenario examples/surveys/lab-meat/scenario.yaml \
+  --audience examples/surveys/pew-ai-healthcare-comfort/audience.yaml \
+  --scenario examples/surveys/pew-ai-healthcare-comfort/scenario.yaml \
   --seed 42 \
-  --out-dir out/survey
+  --out-dir out/surveys/pew-ai-healthcare-comfort/haiku
 ```
 
 
@@ -57,8 +57,34 @@ alongside the results.
 
 ## Social Simulation
 
-Run the four stages in order, using the same population, graph and scenario.
-This example uses MealMind, a priced dinner-planning product.
+The four stages can run as one command. This example uses MealMind, a priced
+dinner-planning product.
+
+```bash
+cohuvo study run \
+  --audience examples/simulation/mealmind-launch/audience.yaml \
+  --scenario examples/simulation/mealmind-launch/scenario.yaml \
+  --seed 42 --out-dir out/simulation/mealmind-study
+```
+
+`study run` executes population -> graph -> simulation -> report, recording stage
+status in `study.json`. A failed stage is retried through its recovery path up to
+`--stage-retries` times (default 2) per invocation; permanent errors such as
+invalid inputs, authentication or insufficient credits stop immediately. Rerunning
+the same command resumes from the failed stage, skipping completed ones. `SUCCESS`
+is written only after the report exists. Inspect progress with
+`cohuvo study status out/mealmind-study`.
+
+On completion or failure the study logs a `token_usage_summary` covering every
+attempt of every stage, including failed attempts and earlier invocations of the
+same study. Per-stage usage is persisted in `study.json` and shown by `study status`.
+Embedding tokens are reported only when the provider adapter meters them.
+
+<details>
+<summary>Running stages individually</summary>
+
+Use the individual commands to reuse a population or graph across scenarios, or to
+rebuild a report with different options.
 
 ```bash
 cohuvo population build \
@@ -80,10 +106,11 @@ cohuvo report build \
   --seed 42 --out-dir out/report
 ```
 
+</details>
+
 Population building samples attributes/traits and optionally generates biographies.
 Graph building creates the social network. Simulation exposes everyone in round 0,
-then models reactions to messages and events. Reporting produces `report.json`,
-`report.md` and an offline `report.html` dashboard.
+then models reactions to messages and events. Reporting produces `report.json`.
 
 Here, **adoption means purchase intent >= 4**, not actual purchases or willingness to
 try. Survey and simulation scenarios have different schemas; do not interchange them.

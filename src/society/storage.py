@@ -31,17 +31,6 @@ async def write_jsonl_async(path: Path, rows: AsyncIterable[BaseModel]) -> int:
     return count
 
 
-def append_jsonl(path: Path, rows: Iterable[BaseModel]) -> int:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    count = 0
-    with path.open("a", encoding="utf-8", buffering=1 << 16) as fh:
-        for row in rows:
-            fh.write(row.model_dump_json())
-            fh.write("\n")
-            count += 1
-    return count
-
-
 def read_jsonl[T: BaseModel](path: Path, model: type[T]) -> Iterator[T]:
     with path.open("r", encoding="utf-8") as fh:
         # for line in fh:

@@ -10,7 +10,7 @@ import json
 import logging
 from collections.abc import Callable, Mapping, Sequence
 
-from society.errors import LLMError
+from society.errors import LLMError, aggregate_llm_error
 from society.llm.base import ChatClient, JsonRequest
 from society.schemas import AudienceSpec, Persona, PersonaProfile
 
@@ -82,7 +82,7 @@ class PersonaEnricher:
             out[i] = out[i].with_profile(recovered_profile)
         pending = [i for i in targets if i not in recovered]
 
-        failed = 0
+        failures: list[LLMError] = []
         received = 0
         async for position, profile in self._client.complete_json_many(
             (self._request(personas[i], nonce) for i in pending),
@@ -94,16 +94,25 @@ class PersonaEnricher:
             received += 1
             i = pending[position]
             if isinstance(profile, LLMError):
-                failed += 1
-                _log.warning("enrichment_failed", extra={"persona_index": i, "nonce": nonce})
+                failures.append(profile)
+                _log.warning(
+                    "enrichment_failed",
+                    extra={
+                        "persona_index": i,
+                        "nonce": nonce,
+                        "failure_category": profile.category,
+                    },
+                )
                 continue
             if on_profile is not None:
                 on_profile(i, profile)
             out[i] = out[i].with_profile(profile)
         if received != len(pending):
             raise LLMError("Enrichment did not account for every requested persona")
-        if failed:
-            raise LLMError(f"{failed} persona enrichments failed; rerun to retry.")
+        if failures:
+            raise aggregate_llm_error(
+                f"{len(failures)} persona enrichments failed; rerun to retry.", failures
+            )
         _log.info("enriched", extra={"count": len(targets), "nonce": nonce})
         return out
 
